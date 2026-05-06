@@ -1,0 +1,70 @@
+# --- Build outputs ---
+bin/
+obj/
+out/
+publish/
+[Dd]ebug/
+[Rr]elease/
+[Xx]64/
+[Xx]86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+[Bb]uild[Ll]og.*
+
+# --- Visual Studio / Rider / VS Code ---
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+*.iml
+*.swp
+
+# --- Test results ---
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.trx
+*.coverage
+*.coveragexml
+
+# --- NuGet ---
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+
+# --- Entity Framework ---
+*.[Cc]ache
+ef_migrations.sql
+
+# --- Logs ---
+*.log
+logs/
+
+# --- ASP.NET ---
+wwwroot/dist/
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+
+# --- Secrets ---
+secrets.json
+*.pfx
+*.publishsettings
+.env
+.env.*
+!.env.example
+
+# --- OS / temporary ---
+.DS_Store
+Thumbs.db
+desktop.ini
+*~
+*.bak
+*.tmp
+*.swp
