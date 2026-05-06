@@ -50,7 +50,9 @@ logs/
 wwwroot/dist/
 appsettings.*.json
 !appsettings.json
-!appsettings.Development.json
+!appsettings.*.example.json
+# NOTE: appsettings.Development.json is now ignored — it contains DB credentials.
+# Use appsettings.Development.example.json as a template instead.
 
 # --- Secrets ---
 secrets.json
