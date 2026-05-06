@@ -76,7 +76,11 @@ public record CreatePropertyRequest(
     bool RoadAccess,
     bool IsFeatured,
     double? Latitude,
-    double? Longitude
+    double? Longitude,
+    // Submitter contact (only used when called by an unauthenticated visitor)
+    string? SubmitterName,
+    string? SubmitterPhone,
+    string? SubmitterEmail
 );
 
 public record UpdatePropertyRequest(

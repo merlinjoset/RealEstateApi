@@ -12,7 +12,8 @@ public record RegisterRequest(
     [Required, MaxLength(100)] string LastName,
     [Required, EmailAddress] string Email,
     [Required, MinLength(8)] string Password,
-    string? Phone
+    string? Phone,
+    string? Role  // "Agent" | "Seller" — defaults to Seller if missing/invalid
 );
 
 public record AuthResponse(UserDto User, TokensDto Tokens);
@@ -30,4 +31,16 @@ public record UserDto(
     string Role,
     string? Avatar,
     DateTime CreatedAt
+);
+
+public record ChangePasswordRequest(
+    [Required] string CurrentPassword,
+    [Required, MinLength(8)] string NewPassword
+);
+
+public record UpdateProfileRequest(
+    [Required, MaxLength(100)] string FirstName,
+    [Required, MaxLength(100)] string LastName,
+    [Required, EmailAddress] string Email,
+    string? Phone
 );

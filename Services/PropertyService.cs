@@ -17,9 +17,16 @@ public interface IPropertyService
     Task<PropertyDto?> ApproveOrRejectAsync(int id, ApprovalRequest req);
     Task<List<PropertyDto>> GetPendingAsync();
     Task<bool> ToggleFavoriteAsync(int propertyId, int userId);
+    Task<List<PropertyDto>> GetFavoritesAsync(int userId);
+    Task<List<PropertyDto>> GetMineAsync(int userId);
+    Task<PropertyDto?> UpdateAsOwnerAsync(int id, int userId, UpdatePropertyRequest req);
 }
 
-public class PropertyService(AppDbContext db) : IPropertyService
+public class PropertyService(
+    AppDbContext db,
+    INotificationService notifications,
+    IEmailService email,
+    ISmsTemplateService templates) : IPropertyService
 {
     private static PropertyDto ToDto(Property p) => new(
         p.Id, p.Title, p.Description, p.TotalPrice, p.PricePerCent,
@@ -31,8 +38,11 @@ public class PropertyService(AppDbContext db) : IPropertyService
         p.ApprovalStatus.ToString(),
         p.Latitude, p.Longitude,
         p.AgentId,
-        p.SubmittedByUser != null ? $"{p.SubmittedByUser.FirstName} {p.SubmittedByUser.LastName}" : null,
-        p.SubmittedByUser?.Phone,
+        // Prefer the registered user's name; fall back to anonymous submitter name
+        p.SubmittedByUser != null
+            ? $"{p.SubmittedByUser.FirstName} {p.SubmittedByUser.LastName}"
+            : p.SubmitterName,
+        p.SubmittedByUser?.Phone ?? p.SubmitterPhone,
         p.CreatedAt, p.UpdatedAt
     );
 
@@ -144,6 +154,9 @@ public class PropertyService(AppDbContext db) : IPropertyService
             Latitude = req.Latitude,
             Longitude = req.Longitude,
             SubmittedByUserId = submittedByUserId,
+            SubmitterName = req.SubmitterName,
+            SubmitterPhone = req.SubmitterPhone,
+            SubmitterEmail = req.SubmitterEmail,
             ApprovalStatus = autoApprove ? ApprovalStatus.Approved : ApprovalStatus.Pending,
             IsApproved = autoApprove,
         };
@@ -206,16 +219,65 @@ public class PropertyService(AppDbContext db) : IPropertyService
 
     public async Task<PropertyDto?> ApproveOrRejectAsync(int id, ApprovalRequest req)
     {
-        var prop = await db.Properties.FindAsync(id);
+        var prop = await db.Properties
+            .Include(p => p.SubmittedByUser)
+            .FirstOrDefaultAsync(p => p.Id == id);
         if (prop is null) return null;
 
-        prop.ApprovalStatus = req.Action.ToLower() == "approve"
-            ? ApprovalStatus.Approved
-            : ApprovalStatus.Rejected;
-        prop.IsApproved = prop.ApprovalStatus == ApprovalStatus.Approved;
-        prop.RejectionReason = req.Reason;
+        var isApprove = req.Action.ToLower() == "approve";
+        prop.ApprovalStatus = isApprove ? ApprovalStatus.Approved : ApprovalStatus.Rejected;
+        prop.IsApproved = isApprove;
+        prop.RejectionReason = isApprove ? null : req.Reason;
         prop.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
+
+        // ── Notify the seller ────────────────────────────────────────────
+        // Prefer the registered user's contact, fall back to anonymous
+        // submitter contact captured at submission time.
+        var sellerName = prop.SubmittedByUser is not null
+            ? prop.SubmittedByUser.FirstName
+            : prop.SubmitterName ?? "there";
+        var sellerPhone = prop.SubmittedByUser?.Phone ?? prop.SubmitterPhone;
+        var sellerEmail = prop.SubmittedByUser?.Email ?? prop.SubmitterEmail;
+
+        if (!string.IsNullOrWhiteSpace(sellerPhone))
+        {
+            var key = isApprove ? "property.approved" : "property.rejected";
+            var vars = new Dictionary<string, string?>
+            {
+                ["name"] = sellerName,
+                ["title"] = prop.Title,
+                ["reasonSuffix"] = string.IsNullOrWhiteSpace(req.Reason) ? "" : $" Reason: {req.Reason}.",
+            };
+            var body = await templates.RenderAsync(key, vars);
+            if (!string.IsNullOrWhiteSpace(body))
+                await notifications.SendAsync(sellerPhone, body, preferWhatsApp: true);
+        }
+
+        // Email follow-up (optional — only if we have an address)
+        if (!string.IsNullOrWhiteSpace(sellerEmail))
+        {
+            var subject = isApprove
+                ? $"Your property '{prop.Title}' is now live!"
+                : $"Update on your property submission '{prop.Title}'";
+            var body = isApprove
+                ? $"<p>Hi {sellerName},</p>" +
+                  $"<p>Great news! Your listing <strong>{prop.Title}</strong> has been " +
+                  $"approved and is <strong>now live</strong> on Jose For Land.</p>" +
+                  $"<p>Buyers can view it at " +
+                  $"<a href=\"https://joseforland.com/properties/{prop.Id}\">joseforland.com/properties/{prop.Id}</a>.</p>" +
+                  "<p>We'll notify you whenever an inquiry comes in.</p>" +
+                  "<p>— The Jose For Land team</p>"
+                : $"<p>Hi {sellerName},</p>" +
+                  $"<p>We've reviewed your submission <strong>{prop.Title}</strong>, but unfortunately we " +
+                  "could not approve it at this time.</p>" +
+                  (string.IsNullOrWhiteSpace(req.Reason) ? "" : $"<p><strong>Reason:</strong> {req.Reason}</p>") +
+                  "<p>Please call us at <strong>+91 99944 88490</strong> if you'd like to discuss " +
+                  "or resubmit with updated details.</p>" +
+                  "<p>— The Jose For Land team</p>";
+            await email.SendAsync(sellerEmail, subject, body);
+        }
+
         return ToDto(prop);
     }
 
@@ -234,5 +296,39 @@ public class PropertyService(AppDbContext db) : IPropertyService
         db.SavedProperties.Add(new SavedProperty { PropertyId = propertyId, UserId = userId });
         await db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<List<PropertyDto>> GetFavoritesAsync(int userId) =>
+        (await db.SavedProperties
+            .Where(sp => sp.UserId == userId)
+            .Include(sp => sp.Property)
+                .ThenInclude(p => p!.SubmittedByUser)
+            .OrderByDescending(sp => sp.SavedAt)
+            .Select(sp => sp.Property!)
+            .ToListAsync())
+        .Select(ToDto).ToList();
+
+    /// <summary>
+    /// Properties submitted by (or assigned as agent to) the given user —
+    /// includes pending/rejected ones so the user can review their queue.
+    /// </summary>
+    public async Task<List<PropertyDto>> GetMineAsync(int userId) =>
+        (await db.Properties
+            .Include(p => p.SubmittedByUser)
+            .Where(p => p.SubmittedByUserId == userId || p.AgentId == userId)
+            .OrderByDescending(p => p.CreatedAt)
+            .ToListAsync())
+        .Select(ToDto).ToList();
+
+    /// <summary>
+    /// Update a property only if the user owns it (submitter or assigned agent).
+    /// Returns null when the property doesn't exist OR the user isn't the owner.
+    /// </summary>
+    public async Task<PropertyDto?> UpdateAsOwnerAsync(int id, int userId, UpdatePropertyRequest req)
+    {
+        var prop = await db.Properties.FindAsync(id);
+        if (prop is null) return null;
+        if (prop.SubmittedByUserId != userId && prop.AgentId != userId) return null;
+        return await UpdateAsync(id, req);
     }
 }

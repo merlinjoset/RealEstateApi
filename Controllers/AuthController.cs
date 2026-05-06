@@ -56,4 +56,30 @@ public class AuthController(IAuthService authService) : ControllerBase
         if (user is null) return NotFound();
         return Ok(user);
     }
+
+    [HttpPut("me")]
+    [Authorize]
+    public async Task<IActionResult> UpdateMe([FromBody] UpdateProfileRequest req)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        try
+        {
+            var updated = await authService.UpdateProfileAsync(userId, req);
+            return updated is null ? NotFound() : Ok(updated);
+        }
+        catch (Exception ex) when (ex.Message.Contains("unique") || ex.InnerException?.Message.Contains("unique") == true)
+        {
+            return Conflict(new { message = "Email already in use" });
+        }
+    }
+
+    [HttpPost("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest req)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var ok = await authService.ChangePasswordAsync(userId, req);
+        if (!ok) return BadRequest(new { message = "Current password is incorrect" });
+        return NoContent();
+    }
 }

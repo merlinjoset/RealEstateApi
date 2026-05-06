@@ -38,6 +38,25 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPropertyService, PropertyService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ITestimonialService, TestimonialService>();
+builder.Services.AddScoped<ISmsTemplateService, SmsTemplateService>();
+// SMS — Fast2SMS when configured (free tier, no DLT), Console fallback for dev.
+var fast2SmsKey = builder.Configuration["Sms:Fast2Sms:AuthKey"];
+if (!string.IsNullOrWhiteSpace(fast2SmsKey))
+{
+    builder.Services.AddHttpClient<Fast2SmsService>();
+    builder.Services.AddScoped<ISmsService, Fast2SmsService>();
+}
+else
+{
+    builder.Services.AddScoped<ISmsService, ConsoleSmsService>();
+}
+builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
+
+// WhatsApp + smart-routing notification (tries WhatsApp first, SMS fallback)
+builder.Services.AddScoped<IWhatsAppService, ConsoleWhatsAppService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
 builder.Services.AddCors(opt =>
@@ -56,9 +75,9 @@ builder.Services.AddSwaggerGen(opt =>
 {
     opt.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "Jose For Land API",
+        Title = "Real Estate API",
         Version = "v1",
-        Description = "REST API for the Jose For Land real estate platform",
+        Description = "REST API for the real estate platform",
     });
 
     opt.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -91,7 +110,7 @@ using (var scope = app.Services.CreateScope())
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Jose For Land API v1"));
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Real Estate API v1"));
 }
 
 app.UseHttpsRedirection();

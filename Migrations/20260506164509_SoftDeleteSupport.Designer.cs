@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RealEstateApi.Data;
@@ -12,9 +13,11 @@ using RealEstateApi.Data;
 namespace RealEstateApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260506164509_SoftDeleteSupport")]
+    partial class SoftDeleteSupport
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -84,10 +87,6 @@ namespace RealEstateApi.Migrations
                         .HasColumnType("integer");
 
                     b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Type")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -535,19 +534,6 @@ namespace RealEstateApi.Migrations
                             Key = "property.rejected",
                             Label = "Property — rejected",
                             UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = 9,
-                            AvailableVars = "name,phone,propertyId,type",
-                            Body = "📄 DOCUMENT REQUEST from {name} ({phone}) for property #{propertyId}. They want to view EC/Patta/Chitta etc. Call them within 2-5 hrs with copies.",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Notifies admins when a buyer requests verified documents for a property.",
-                            IsActive = true,
-                            IsDeleted = false,
-                            Key = "inquiry.documentRequest",
-                            Label = "Inquiry — document request alert",
-                            UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
                 });
 
@@ -734,7 +720,7 @@ namespace RealEstateApi.Migrations
                             IsActive = true,
                             IsDeleted = false,
                             LastName = "Jose",
-                            PasswordHash = "$2a$11$5R5Z549qCOFMvNdLualmWexpNKVAW.dBONaM2U7SAsLfdAytLh0Me",
+                            PasswordHash = "$2a$11$pG.k4HEuYOSgbg2BlMJPUuCX.ChmZVVzSXYi2OnRRnB9lPCMDxKOu",
                             Phone = "+919994488490",
                             Role = "Admin",
                             UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)

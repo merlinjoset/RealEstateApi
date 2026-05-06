@@ -12,6 +12,8 @@ public interface IAuthService
     Task<AuthResponse?> RefreshAsync(string refreshToken);
     Task RevokeAsync(string refreshToken);
     Task<UserDto?> GetMeAsync(int userId);
+    Task<UserDto?> UpdateProfileAsync(int userId, UpdateProfileRequest req);
+    Task<bool> ChangePasswordAsync(int userId, ChangePasswordRequest req);
 }
 
 public class AuthService(AppDbContext db, ITokenService tokenService, IConfiguration config) : IAuthService
@@ -51,6 +53,15 @@ public class AuthService(AppDbContext db, ITokenService tokenService, IConfigura
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest req)
     {
+        // Public registration only allows Agent or Seller roles —
+        // Employee/Admin accounts are created by the admin team via /api/users.
+        var role = (req.Role?.ToLowerInvariant()) switch
+        {
+            "agent"  => UserRole.Agent,
+            "seller" => UserRole.Seller,
+            _        => UserRole.Seller,
+        };
+
         var user = new User
         {
             FirstName = req.FirstName,
@@ -58,7 +69,7 @@ public class AuthService(AppDbContext db, ITokenService tokenService, IConfigura
             Email = req.Email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password),
             Phone = req.Phone,
-            Role = UserRole.Buyer,
+            Role = role,
         };
 
         db.Users.Add(user);
@@ -95,5 +106,31 @@ public class AuthService(AppDbContext db, ITokenService tokenService, IConfigura
     {
         var user = await db.Users.FindAsync(userId);
         return user is null ? null : ToDto(user);
+    }
+
+    public async Task<UserDto?> UpdateProfileAsync(int userId, UpdateProfileRequest req)
+    {
+        var user = await db.Users.FindAsync(userId);
+        if (user is null) return null;
+
+        user.FirstName = req.FirstName;
+        user.LastName = req.LastName;
+        user.Email = req.Email;
+        user.Phone = req.Phone;
+        user.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        return ToDto(user);
+    }
+
+    public async Task<bool> ChangePasswordAsync(int userId, ChangePasswordRequest req)
+    {
+        var user = await db.Users.FindAsync(userId);
+        if (user is null) return false;
+        if (!BCrypt.Net.BCrypt.Verify(req.CurrentPassword, user.PasswordHash)) return false;
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.NewPassword);
+        user.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        return true;
     }
 }

@@ -8,8 +8,25 @@ namespace RealEstateApi.Controllers;
 
 [ApiController]
 [Route("api/properties")]
-public class PropertiesController(IPropertyService propertyService) : ControllerBase
+public class PropertiesController(
+    IPropertyService propertyService,
+    INotificationService notifications,
+    IEmailService email,
+    ISmsTemplateService templates) : ControllerBase
 {
+    /// <summary>Render an app SmsTemplate by key and send via WhatsApp/SMS smart router.</summary>
+    private async Task SendIfRendered(string toPhone, string key, IDictionary<string, string?> vars, bool preferWhatsApp = false)
+    {
+        var body = await templates.RenderAsync(key, vars);
+        if (!string.IsNullOrWhiteSpace(body))
+            await notifications.SendAsync(toPhone, body, preferWhatsApp);
+    }
+    private async Task BroadcastIfRendered(string key, IDictionary<string, string?> vars)
+    {
+        var body = await templates.RenderAsync(key, vars);
+        if (!string.IsNullOrWhiteSpace(body))
+            await notifications.NotifyAdminsAsync(body);
+    }
     private int? CurrentUserId =>
         User.Identity?.IsAuthenticated == true
             ? int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!)
@@ -55,23 +72,91 @@ public class PropertiesController(IPropertyService propertyService) : Controller
         return Ok(result);
     }
 
+    /// <summary>
+    /// Submit a property. Logged-in admins auto-approve; everyone else
+    /// (including anonymous public submissions) goes into the pending queue.
+    /// </summary>
     [HttpPost]
-    [Authorize]
+    [AllowAnonymous]
     public async Task<IActionResult> Create([FromBody] CreatePropertyRequest req)
     {
         var autoApprove = IsAdmin;
         var result = await propertyService.CreateAsync(req, CurrentUserId, autoApprove);
+
+        // Send confirmation SMS to the seller / submitter
+        var phone = req.SubmitterPhone;
+        var name = req.SubmitterName ?? "there";
+        var emailAddr = req.SubmitterEmail;
+
+        if (!string.IsNullOrEmpty(phone))
+        {
+            // Auto-approved (admin) → property.approved; otherwise → property.submittedConfirmation
+            var key = autoApprove ? "property.approved" : "property.submittedConfirmation";
+            await SendIfRendered(phone, key, new Dictionary<string, string?>
+            {
+                ["name"] = name,
+                ["title"] = result.Title,
+            }, preferWhatsApp: true);
+        }
+
+        // Email confirmation when an email was provided
+        if (!string.IsNullOrEmpty(emailAddr))
+        {
+            var subject = autoApprove
+                ? "Your property is now live on Jose For Land"
+                : "We've received your property submission";
+            var body =
+                $"<p>Hi {name},</p>" +
+                $"<p>Thank you for submitting <strong>{result.Title}</strong> on Jose For Land.</p>" +
+                (autoApprove
+                    ? "<p>Your listing is <strong>now live</strong> and visible to buyers across Kanyakumari.</p>"
+                    : "<p>Our team will personally review the listing within 24 hours and reach out to you on " +
+                      $"<strong>{phone ?? "your registered phone"}</strong>.</p>") +
+                "<p>For urgent help, call <strong>+91 99944 88490</strong>.</p>" +
+                "<p>— The Jose For Land team</p>";
+            await email.SendAsync(emailAddr, subject, body);
+        }
+
+        // Notify admins of a new pending submission — uses property.adminPending template
+        if (!autoApprove)
+        {
+            await BroadcastIfRendered("property.adminPending", new Dictionary<string, string?>
+            {
+                ["title"] = result.Title,
+                ["priceLakhs"] = (result.TotalPrice / 100000m).ToString("F2"),
+                ["area"] = result.AreaInCents.ToString(),
+                ["name"] = string.IsNullOrEmpty(phone) ? "(unknown)" : name,
+                ["phone"] = phone ?? "",
+            });
+        }
+
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
+    /// <summary>
+    /// Admins can edit any property; everyone else can only edit ones they own
+    /// (submitted by them or assigned to them as agent).
+    /// </summary>
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize]
     public async Task<IActionResult> Update(int id, [FromBody] UpdatePropertyRequest req)
     {
-        var result = await propertyService.UpdateAsync(id, req);
-        if (result is null) return NotFound();
-        return Ok(result);
+        if (IsAdmin)
+        {
+            var result = await propertyService.UpdateAsync(id, req);
+            return result is null ? NotFound() : Ok(result);
+        }
+
+        var asOwner = await propertyService.UpdateAsOwnerAsync(id, CurrentUserId!.Value, req);
+        if (asOwner is null) return Forbid();
+        return Ok(asOwner);
     }
+
+    /// <summary>List properties submitted by (or assigned to) the current user.</summary>
+    [HttpGet("mine")]
+    [Authorize]
+    public async Task<IActionResult> GetMine() =>
+        Ok(await propertyService.GetMineAsync(CurrentUserId!.Value));
 
     [HttpDelete("{id:int}")]
     [Authorize(Roles = "Admin")]
@@ -101,5 +186,14 @@ public class PropertiesController(IPropertyService propertyService) : Controller
         var userId = CurrentUserId!.Value;
         var saved = await propertyService.ToggleFavoriteAsync(id, userId);
         return Ok(new { saved });
+    }
+
+    /// <summary>List the current user's saved/favorite properties.</summary>
+    [HttpGet("favorites")]
+    [Authorize]
+    public async Task<IActionResult> GetFavorites()
+    {
+        var userId = CurrentUserId!.Value;
+        return Ok(await propertyService.GetFavoritesAsync(userId));
     }
 }

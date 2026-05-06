@@ -8,7 +8,8 @@ public record CreateInquiryRequest(
     [EmailAddress] string? Email,
     [Required] string Message,
     string PreferredContact,
-    int? PropertyId
+    int? PropertyId,
+    string? Type = null  // "General" | "DocumentRequest" | "SiteVisit" | "Pricing" | "Sell"
 );
 
 public record InquiryDto(
@@ -18,8 +19,24 @@ public record InquiryDto(
     string? Email,
     string Message,
     string PreferredContact,
+    string Type,
     bool IsRead,
+    string Status,
+    string? Notes,
     int? PropertyId,
     string? PropertyTitle,
+    int? AssignedToUserId,
+    string? AssignedToName,
+    DateTime? AssignedAt,
+    DateTime? LastUpdatedAt,
     DateTime CreatedAt
+);
+
+public record AssignInquiryRequest(
+    [Required] int AssignedToUserId
+);
+
+public record UpdateInquiryRequest(
+    [Required] string Status,           // "New" | "Assigned" | "InProgress" | "Resolved" | "Closed"
+    string? Notes
 );

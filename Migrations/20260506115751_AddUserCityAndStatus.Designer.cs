@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RealEstateApi.Data;
@@ -12,9 +13,11 @@ using RealEstateApi.Data;
 namespace RealEstateApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260506115751_AddUserCityAndStatus")]
+    partial class AddUserCityAndStatus
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -31,35 +34,14 @@ namespace RealEstateApi.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime?>("AssignedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("AssignedByUserId")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("AssignedToUserId")
-                        .HasColumnType("integer");
-
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Email")
                         .HasColumnType("text");
 
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
-
                     b.Property<bool>("IsRead")
                         .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("LastUpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("LastUpdatedByUserId")
-                        .HasColumnType("integer");
 
                     b.Property<string>("Message")
                         .IsRequired()
@@ -67,9 +49,6 @@ namespace RealEstateApi.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Notes")
                         .HasColumnType("text");
 
                     b.Property<string>("Phone")
@@ -83,20 +62,10 @@ namespace RealEstateApi.Migrations
                     b.Property<int?>("PropertyId")
                         .HasColumnType("integer");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<int?>("UserId")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("AssignedToUserId");
 
                     b.HasIndex("PropertyId");
 
@@ -145,9 +114,6 @@ namespace RealEstateApi.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("text");
@@ -165,9 +131,6 @@ namespace RealEstateApi.Migrations
                         .HasColumnType("text[]");
 
                     b.Property<bool>("IsApproved")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("IsFeatured")
@@ -218,15 +181,6 @@ namespace RealEstateApi.Migrations
                     b.Property<int?>("SubmittedByUserId")
                         .HasColumnType("integer");
 
-                    b.Property<string>("SubmitterEmail")
-                        .HasColumnType("text");
-
-                    b.Property<string>("SubmitterName")
-                        .HasColumnType("text");
-
-                    b.Property<string>("SubmitterPhone")
-                        .HasColumnType("text");
-
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text");
@@ -261,7 +215,6 @@ namespace RealEstateApi.Migrations
                             Features = new List<string> { "Road Access", "Clear Title", "Near Market" },
                             Images = new List<string>(),
                             IsApproved = true,
-                            IsDeleted = false,
                             IsFeatured = true,
                             IsVerified = true,
                             LegalStatus = "Clear – EC, Patta, Chitta available",
@@ -291,7 +244,6 @@ namespace RealEstateApi.Migrations
                             Features = new List<string> { "Road Access", "Electricity", "Water Source" },
                             Images = new List<string>(),
                             IsApproved = true,
-                            IsDeleted = false,
                             IsFeatured = true,
                             IsVerified = true,
                             NearbyLandmarks = new List<string> { "Marthandam Bus Stand (500 m)" },
@@ -318,7 +270,6 @@ namespace RealEstateApi.Migrations
                             Features = new List<string> { "Water Source", "Fertile Soil" },
                             Images = new List<string>(),
                             IsApproved = true,
-                            IsDeleted = false,
                             IsFeatured = false,
                             IsVerified = true,
                             NearbyLandmarks = new List<string>(),
@@ -383,285 +334,6 @@ namespace RealEstateApi.Migrations
                     b.ToTable("SavedProperties");
                 });
 
-            modelBuilder.Entity("RealEstateApi.Models.SmsTemplate", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AvailableVars")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Body")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Key")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Label")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Key")
-                        .IsUnique();
-
-                    b.ToTable("SmsTemplates");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            AvailableVars = "name,phone,propertyId",
-                            Body = "Hi {name}, thank you for reaching Jose For Land. Our team will call you back within 2-5 hours. For urgent help, dial +91 99944 88490.",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Sent to the public visitor right after they submit an inquiry.",
-                            IsActive = true,
-                            IsDeleted = false,
-                            Key = "inquiry.confirmation",
-                            Label = "Inquiry — visitor confirmation",
-                            UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = 2,
-                            AvailableVars = "name,phone,propertyContext",
-                            Body = "📩 New inquiry from {name} ({phone}){propertyContext}. Check the admin panel.",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Notifies the admin team whenever a new inquiry comes in.",
-                            IsActive = true,
-                            IsDeleted = false,
-                            Key = "inquiry.adminNotification",
-                            Label = "Inquiry — admin alert",
-                            UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = 3,
-                            AvailableVars = "name,phone",
-                            Body = "📨 New inquiry assigned to you: {name} ({phone}). Open the admin panel to review.",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Notifies an employee that an inquiry has been assigned to them.",
-                            IsActive = true,
-                            IsDeleted = false,
-                            Key = "inquiry.assignment",
-                            Label = "Inquiry — assigned to employee",
-                            UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = 4,
-                            AvailableVars = "id,name,actor,prevStatus,newStatus,noteSuffix",
-                            Body = "🔔 Inquiry #{id} ({name}) updated by {actor}: {prevStatus} → {newStatus}{noteSuffix}",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Notifies admins when an employee updates an inquiry status.",
-                            IsActive = true,
-                            IsDeleted = false,
-                            Key = "inquiry.statusUpdate",
-                            Label = "Inquiry — status changed",
-                            UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = 5,
-                            AvailableVars = "name,title",
-                            Body = "Hi {name}, thank you for submitting '{title}' on Jose For Land. Our team will review it within 24 hours and get back to you.",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Sent to a seller after they submit a property for review.",
-                            IsActive = true,
-                            IsDeleted = false,
-                            Key = "property.submittedConfirmation",
-                            Label = "Property — submitter confirmation",
-                            UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = 6,
-                            AvailableVars = "title,priceLakhs,area,name,phone",
-                            Body = "🏡 New property pending: '{title}' (₹{priceLakhs}L / {area} cents) from {name} ({phone})",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Notifies admins of a new property submission awaiting approval.",
-                            IsActive = true,
-                            IsDeleted = false,
-                            Key = "property.adminPending",
-                            Label = "Property — admin pending alert",
-                            UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = 7,
-                            AvailableVars = "name,title",
-                            Body = "🎉 Hi {name}, your property '{title}' is now LIVE on Jose For Land! Buyers can now view it. Visit joseforland.com to see it online.",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Sent to the seller when their property is approved by an admin.",
-                            IsActive = true,
-                            IsDeleted = false,
-                            Key = "property.approved",
-                            Label = "Property — approved (LIVE)",
-                            UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = 8,
-                            AvailableVars = "name,title,reasonSuffix",
-                            Body = "Hi {name}, your submission '{title}' could not be approved.{reasonSuffix} Call +91 99944 88490 for help.",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Sent to the seller if their property is rejected by an admin.",
-                            IsActive = true,
-                            IsDeleted = false,
-                            Key = "property.rejected",
-                            Label = "Property — rejected",
-                            UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        },
-                        new
-                        {
-                            Id = 9,
-                            AvailableVars = "name,phone,propertyId,type",
-                            Body = "📄 DOCUMENT REQUEST from {name} ({phone}) for property #{propertyId}. They want to view EC/Patta/Chitta etc. Call them within 2-5 hrs with copies.",
-                            CreatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Notifies admins when a buyer requests verified documents for a property.",
-                            IsActive = true,
-                            IsDeleted = false,
-                            Key = "inquiry.documentRequest",
-                            Label = "Inquiry — document request alert",
-                            UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                        });
-                });
-
-            modelBuilder.Entity("RealEstateApi.Models.Testimonial", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Duration")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Excerpt")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsPublished")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Location")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Order")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("PropertyDetail")
-                        .HasColumnType("text");
-
-                    b.Property<int>("Rating")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Thumbnail")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("VideoUrl")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Testimonials");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            CreatedAt = new DateTime(2024, 1, 12, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Duration = "1:24",
-                            Excerpt = "They visited the site with us, explained every document, and stayed honest throughout. Bought my first land through Jose For Land — no regrets.",
-                            IsDeleted = false,
-                            IsPublished = true,
-                            Location = "Nagercoil",
-                            Name = "Rajan Kumar",
-                            Order = 1,
-                            PropertyDetail = "15 cents · Open Land",
-                            Rating = 5,
-                            Thumbnail = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=900&q=80&auto=format&fit=crop",
-                            UpdatedAt = new DateTime(2024, 1, 12, 0, 0, 0, 0, DateTimeKind.Utc),
-                            VideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            CreatedAt = new DateTime(2024, 1, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Duration = "0:58",
-                            Excerpt = "The free doorstep consultation is real — they came to our village, walked the plot with us, and answered every question. Genuine team.",
-                            IsDeleted = false,
-                            IsPublished = true,
-                            Location = "Marthandam",
-                            Name = "Priya Selvam",
-                            Order = 2,
-                            PropertyDetail = "10 cents · Residential Plot",
-                            Rating = 5,
-                            Thumbnail = "https://images.unsplash.com/photo-1464082354059-27db6ce50048?w=900&q=80&auto=format&fit=crop",
-                            UpdatedAt = new DateTime(2024, 1, 18, 0, 0, 0, 0, DateTimeKind.Utc),
-                            VideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            CreatedAt = new DateTime(2024, 1, 22, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Duration = "1:42",
-                            Excerpt = "Compared with three other agents — Jose For Land had the cleanest documentation and the most transparent pricing. Highly recommend.",
-                            IsDeleted = false,
-                            IsPublished = true,
-                            Location = "Colachel",
-                            Name = "Xavier Joseph",
-                            Order = 3,
-                            PropertyDetail = "50 cents · Agricultural",
-                            Rating = 5,
-                            Thumbnail = "https://images.unsplash.com/photo-1500076656116-558758c991c1?w=900&q=80&auto=format&fit=crop",
-                            UpdatedAt = new DateTime(2024, 1, 22, 0, 0, 0, 0, DateTimeKind.Utc),
-                            VideoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
-                        });
-                });
-
             modelBuilder.Entity("RealEstateApi.Models.User", b =>
                 {
                     b.Property<int>("Id")
@@ -679,9 +351,6 @@ namespace RealEstateApi.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasColumnType("text");
@@ -691,9 +360,6 @@ namespace RealEstateApi.Migrations
                         .HasColumnType("text");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
                     b.Property<DateTime?>("LastActiveAt")
@@ -732,9 +398,8 @@ namespace RealEstateApi.Migrations
                             Email = "admin@joseforland.com",
                             FirstName = "Admin",
                             IsActive = true,
-                            IsDeleted = false,
                             LastName = "Jose",
-                            PasswordHash = "$2a$11$5R5Z549qCOFMvNdLualmWexpNKVAW.dBONaM2U7SAsLfdAytLh0Me",
+                            PasswordHash = "$2a$11$enRuypI2TqOAzhOJbqZLZOojpiYp116sEvaKeVHcq3ztJhEHt9qZG",
                             Phone = "+919994488490",
                             Role = "Admin",
                             UpdatedAt = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
@@ -743,11 +408,6 @@ namespace RealEstateApi.Migrations
 
             modelBuilder.Entity("RealEstateApi.Models.Inquiry", b =>
                 {
-                    b.HasOne("RealEstateApi.Models.User", "AssignedToUser")
-                        .WithMany()
-                        .HasForeignKey("AssignedToUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("RealEstateApi.Models.Property", "Property")
                         .WithMany("Inquiries")
                         .HasForeignKey("PropertyId")
@@ -757,8 +417,6 @@ namespace RealEstateApi.Migrations
                         .WithMany("Inquiries")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("AssignedToUser");
 
                     b.Navigation("Property");
 

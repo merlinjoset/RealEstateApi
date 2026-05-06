@@ -11,7 +11,7 @@ public enum PropertyType
 
 public enum ListingStatus { ForSale, ForRent, Sold }
 
-public class Property
+public class Property : ISoftDeletable
 {
     public int Id { get; set; }
     public string Title { get; set; } = string.Empty;
@@ -45,8 +45,15 @@ public class Property
     public User? Agent { get; set; }
     public int? SubmittedByUserId { get; set; }
     public User? SubmittedByUser { get; set; }
+    // Anonymous submitter contact (used when SubmittedByUser is null —
+    // someone submitted via the public /sell page without registering).
+    public string? SubmitterName { get; set; }
+    public string? SubmitterPhone { get; set; }
+    public string? SubmitterEmail { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
 
     public ICollection<Inquiry> Inquiries { get; set; } = new List<Inquiry>();
     public ICollection<SavedProperty> SavedByUsers { get; set; } = new List<SavedProperty>();
