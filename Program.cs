@@ -107,16 +107,24 @@ using (var scope = app.Services.CreateScope())
 }
 
 // ── Middleware pipeline ───────────────────────────────────────────────────────
-if (app.Environment.IsDevelopment())
+// Swagger — available everywhere so deployments can be sanity-checked from the browser
+app.UseSwagger();
+app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Real Estate API v1"));
+
+// Skip HTTPS redirect when running behind a TLS-terminating proxy (Render, Fly.io, etc.)
+// Detected via DOTNET_RUNNING_IN_CONTAINER which Docker images set, or by Development env.
+var inContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
+if (!inContainer && !app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Real Estate API v1"));
+    app.UseHttpsRedirection();
 }
 
-app.UseHttpsRedirection();
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// Simple health-check endpoint Render can poll
+app.MapGet("/healthz", () => Results.Ok(new { status = "ok", time = DateTime.UtcNow }));
 
 app.Run();
