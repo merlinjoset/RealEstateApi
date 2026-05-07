@@ -100,10 +100,31 @@ builder.Services.AddSwaggerGen(opt =>
 var app = builder.Build();
 
 // ── Migrate & seed on startup ─────────────────────────────────────────────────
+// Wrapped in try/catch so a transient DB issue doesn't crash the container
+// before we can even serve /healthz or Swagger to diagnose it.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await db.Database.MigrateAsync();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    var connStr = builder.Configuration.GetConnectionString("DefaultConnection") ?? "(unset)";
+    var safeConnStr = System.Text.RegularExpressions.Regex.Replace(connStr,
+        @"Password=[^;]+", "Password=***");
+
+    try
+    {
+        logger.LogInformation("🗄️  Applying EF migrations against: {ConnStr}", safeConnStr);
+        await db.Database.MigrateAsync();
+        logger.LogInformation("✓ Migrations applied successfully.");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex,
+            "❌ Migration failed. App will continue serving requests, but DB-dependent " +
+            "endpoints will error. Check the connection string env var: {ConnStr}",
+            safeConnStr);
+        // Don't rethrow — keep the app alive so /healthz works and the operator
+        // can diagnose without a crash loop.
+    }
 }
 
 // ── Middleware pipeline ───────────────────────────────────────────────────────
