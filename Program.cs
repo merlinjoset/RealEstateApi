@@ -122,6 +122,42 @@ using (var scope = app.Services.CreateScope())
         logger.LogInformation("🗄️  Applying EF migrations against: {ConnStr}", safeConnStr);
         await db.Database.MigrateAsync();
         logger.LogInformation("✓ Migrations applied successfully.");
+
+        // ── Production admin bootstrap ───────────────────────────────────
+        // The seeded admin in DbContext uses a known dev password ("Admin@123")
+        // which is in the source repo. On production, the operator should set
+        // `Seed__AdminPassword` to a strong secret — we'll rotate the seeded
+        // admin's password to that value the first time the app boots.
+        var seedAdminEmail    = builder.Configuration["Seed:AdminEmail"]    ?? "admin@joseforland.com";
+        var seedAdminPassword = builder.Configuration["Seed:AdminPassword"];
+
+        if (!string.IsNullOrWhiteSpace(seedAdminPassword))
+        {
+            var admin = await db.Users.FirstOrDefaultAsync(u => u.Email == seedAdminEmail);
+            if (admin is not null)
+            {
+                var newHash = BCrypt.Net.BCrypt.HashPassword(seedAdminPassword);
+                if (admin.PasswordHash != newHash) // only re-hash when actually different
+                {
+                    admin.PasswordHash = newHash;
+                    admin.UpdatedAt = DateTime.UtcNow;
+                    await db.SaveChangesAsync();
+                    logger.LogWarning(
+                        "🔐 Admin password rotated from Seed:AdminPassword env var for {Email}. " +
+                        "Remove this env var once you've signed in successfully.", seedAdminEmail);
+                }
+            }
+            else
+            {
+                logger.LogWarning("Seed:AdminPassword set but no admin user exists with email {Email} — skipping rotation.", seedAdminEmail);
+            }
+        }
+        else if (builder.Environment.IsProduction())
+        {
+            logger.LogWarning(
+                "⚠️  Production deploy detected with default admin password ('Admin@123' from source). " +
+                "Set Seed__AdminPassword env var to a strong secret and redeploy to rotate immediately.");
+        }
     }
     catch (Exception ex)
     {

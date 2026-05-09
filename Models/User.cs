@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace RealEstateApi.Models;
 
 public enum UserRole { Employee, Seller, Agent, Admin }
@@ -8,6 +10,13 @@ public class User : ISoftDeletable
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+
+    /// <summary>
+    /// BCrypt hash of the user's password. Never serialised to API clients —
+    /// JsonIgnore guarantees this field can't accidentally leak through any
+    /// future endpoint that returns a raw User entity instead of a DTO.
+    /// </summary>
+    [JsonIgnore]
     public string PasswordHash { get; set; } = string.Empty;
     public string? Phone { get; set; }
     public string? City { get; set; }
