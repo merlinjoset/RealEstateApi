@@ -43,7 +43,8 @@ public class AuthService(AppDbContext db, ITokenService tokenService, IConfigura
     public async Task<AuthResponse?> LoginAsync(LoginRequest req)
     {
         var user = await db.Users.FirstOrDefaultAsync(u => u.Email == req.Email);
-        if (user is null || !BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash))
+        if (user is null || string.IsNullOrEmpty(req.Password)
+            || !BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash))
             return null;
 
         var tokens = BuildTokens(user);

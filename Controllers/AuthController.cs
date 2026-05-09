@@ -8,12 +8,38 @@ namespace RealEstateApi.Controllers;
 
 [ApiController]
 [Route("api/auth")]
-public class AuthController(IAuthService authService) : ControllerBase
+public class AuthController(IAuthService authService, IRsaKeyService rsa) : ControllerBase
 {
+    /// <summary>
+    /// Public RSA key (JWK format) the browser uses to encrypt the password
+    /// before sending. Safe to expose — only the matching private key on the
+    /// server can decrypt.
+    /// </summary>
+    [HttpGet("public-key")]
+    public IActionResult GetPublicKey() => Ok(rsa.GetPublicJwk());
+
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest req)
     {
-        var result = await authService.LoginAsync(req);
+        // Prefer encrypted password — decrypt with private key.
+        // Fall back to plaintext password for backwards compatibility (curl/tests).
+        string? plaintext = req.Password;
+        if (!string.IsNullOrWhiteSpace(req.EncryptedPassword))
+        {
+            try
+            {
+                plaintext = rsa.Decrypt(req.EncryptedPassword);
+            }
+            catch
+            {
+                return Unauthorized(new { message = "Invalid email or password" });
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(plaintext))
+            return BadRequest(new { message = "Password is required" });
+
+        var result = await authService.LoginAsync(new LoginRequest(req.Email, plaintext, null));
         if (result is null) return Unauthorized(new { message = "Invalid email or password" });
         return Ok(result);
     }

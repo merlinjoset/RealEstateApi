@@ -2,9 +2,17 @@ using System.ComponentModel.DataAnnotations;
 
 namespace RealEstateApi.DTOs;
 
+/// <summary>
+/// Login payload. Either provide <see cref="Password"/> (plaintext over HTTPS)
+/// or <see cref="EncryptedPassword"/> (RSA-OAEP-SHA256 ciphertext, base64).
+/// The browser client fetches the public key from <c>/api/auth/public-key</c>
+/// and encrypts the password before sending so DevTools never shows it in
+/// plaintext.
+/// </summary>
 public record LoginRequest(
     [Required, EmailAddress] string Email,
-    [Required, MinLength(6)] string Password
+    string? Password,
+    string? EncryptedPassword
 );
 
 public record RegisterRequest(
