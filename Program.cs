@@ -62,8 +62,20 @@ else
 }
 builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
 
-// WhatsApp + smart-routing notification (tries WhatsApp first, SMS fallback)
-builder.Services.AddScoped<IWhatsAppService, ConsoleWhatsAppService>();
+// WhatsApp + smart-routing notification (tries WhatsApp first, SMS fallback).
+// Meta Cloud API takes over when WhatsApp:Meta:AccessToken is configured; the
+// ConsoleWhatsAppService stub stays as the local-dev fallback so behaviour is
+// predictable when running without credentials.
+var metaWaToken = builder.Configuration["WhatsApp:Meta:AccessToken"];
+if (!string.IsNullOrWhiteSpace(metaWaToken))
+{
+    builder.Services.AddHttpClient<MetaCloudWhatsAppService>();
+    builder.Services.AddScoped<IWhatsAppService, MetaCloudWhatsAppService>();
+}
+else
+{
+    builder.Services.AddScoped<IWhatsAppService, ConsoleWhatsAppService>();
+}
 builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
@@ -106,6 +118,13 @@ builder.Services.AddSwaggerGen(opt =>
 });
 
 var app = builder.Build();
+
+// ── Provider banner — makes Render logs immediately tell you which adapters
+//    are active for SMS / WhatsApp without having to trigger a test send.
+var bootLog = app.Services.GetRequiredService<ILogger<Program>>();
+var smsProvider = string.IsNullOrWhiteSpace(fast2SmsKey) ? "Console (dev stub)" : "Fast2SMS";
+var waProvider  = string.IsNullOrWhiteSpace(metaWaToken) ? "Console (dev stub)" : "Meta Cloud API";
+bootLog.LogInformation("📨 Messaging providers — SMS: {Sms} · WhatsApp: {WA}", smsProvider, waProvider);
 
 // ── Migrate & seed on startup ─────────────────────────────────────────────────
 // Wrapped in try/catch so a transient DB issue doesn't crash the container
