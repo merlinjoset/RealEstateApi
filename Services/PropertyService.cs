@@ -36,6 +36,7 @@ public class PropertyService(
         p.Images, p.Features, p.NearbyLandmarks,
         p.LegalStatus, p.RoadAccess, p.IsFeatured, p.IsVerified,
         p.ApprovalStatus.ToString(),
+        p.MarketingPlan.ToString(),
         p.Latitude, p.Longitude,
         p.AgentId,
         // Prefer the registered user's name; fall back to anonymous submitter name
@@ -127,6 +128,8 @@ public class PropertyService(
             pt = PropertyType.OpenLand;
         if (!Enum.TryParse<ListingStatus>(req.Status ?? "ForSale", true, out var ls))
             ls = ListingStatus.ForSale;
+        if (!Enum.TryParse<MarketingPlan>(req.MarketingPlan ?? "Free", true, out var mp))
+            mp = MarketingPlan.Free;
 
         var prop = new Property
         {
@@ -151,6 +154,7 @@ public class PropertyService(
             LegalStatus = req.LegalStatus,
             RoadAccess = req.RoadAccess,
             IsFeatured = req.IsFeatured,
+            MarketingPlan = mp,
             Latitude = req.Latitude,
             Longitude = req.Longitude,
             SubmittedByUserId = submittedByUserId,
@@ -188,6 +192,9 @@ public class PropertyService(
         if (req.RoadAccess.HasValue) prop.RoadAccess = req.RoadAccess.Value;
         if (req.IsFeatured.HasValue) prop.IsFeatured = req.IsFeatured.Value;
         if (req.IsVerified.HasValue) prop.IsVerified = req.IsVerified.Value;
+        if (req.MarketingPlan is not null &&
+            Enum.TryParse<MarketingPlan>(req.MarketingPlan, true, out var mpUpd))
+            prop.MarketingPlan = mpUpd;
         if (req.Latitude.HasValue) prop.Latitude = req.Latitude;
         if (req.Longitude.HasValue) prop.Longitude = req.Longitude;
         if (req.PropertyType is not null && Enum.TryParse<PropertyType>(req.PropertyType, true, out var pt))

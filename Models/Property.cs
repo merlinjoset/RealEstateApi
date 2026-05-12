@@ -11,6 +11,14 @@ public enum PropertyType
 
 public enum ListingStatus { ForSale, ForRent, Sold }
 
+/// <summary>
+/// Seller's chosen marketing tier at submission time.
+/// Free   — zero brokerage, basic listing.
+/// VideoPromotion — 2% brokerage on the sale price; we shoot a promotional
+/// video and feature it across our channels.
+/// </summary>
+public enum MarketingPlan { Free, VideoPromotion }
+
 public class Property : ISoftDeletable
 {
     public int Id { get; set; }
@@ -35,6 +43,8 @@ public class Property : ISoftDeletable
     public string? LegalStatus { get; set; }
     public bool RoadAccess { get; set; }
     public bool IsFeatured { get; set; }
+    /// <summary>Free vs paid (Video Promotion, 2% brokerage). Defaults to Free.</summary>
+    public MarketingPlan MarketingPlan { get; set; } = MarketingPlan.Free;
     public bool IsVerified { get; set; }
     public bool IsApproved { get; set; } = true;
     public ApprovalStatus ApprovalStatus { get; set; } = ApprovalStatus.Approved;

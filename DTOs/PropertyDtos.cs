@@ -44,6 +44,7 @@ public record PropertyDto(
     bool IsFeatured,
     bool IsVerified,
     string ApprovalStatus,
+    string MarketingPlan,
     double? Latitude,
     double? Longitude,
     int? AgentId,
@@ -75,6 +76,8 @@ public record CreatePropertyRequest(
     string? LegalStatus,
     bool RoadAccess,
     bool IsFeatured,
+    /// <summary>"Free" or "VideoPromotion" — defaults to "Free" when omitted.</summary>
+    string? MarketingPlan,
     double? Latitude,
     double? Longitude,
     // Submitter contact (only used when called by an unauthenticated visitor)
@@ -103,6 +106,7 @@ public record UpdatePropertyRequest(
     bool? RoadAccess,
     bool? IsFeatured,
     bool? IsVerified,
+    string? MarketingPlan,
     double? Latitude,
     double? Longitude
 );
