@@ -32,6 +32,7 @@ public record UserCountsDto(
     int Seller,
     int Agent,
     int Admin,
+    int Buyer,
     int Active,
     int Inactive
 );

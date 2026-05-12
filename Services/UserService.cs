@@ -68,6 +68,7 @@ public class UserService(AppDbContext db) : IUserService
             Seller: users.Count(x => x.User.Role == UserRole.Seller),
             Agent: users.Count(x => x.User.Role == UserRole.Agent),
             Admin: users.Count(x => x.User.Role == UserRole.Admin),
+            Buyer: users.Count(x => x.User.Role == UserRole.Buyer),
             Active: users.Count(x => x.User.IsActive),
             Inactive: users.Count(x => !x.User.IsActive)
         );
