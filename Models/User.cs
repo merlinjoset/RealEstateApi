@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace RealEstateApi.Models;
 
-public enum UserRole { Employee, Seller, Agent, Admin }
+public enum UserRole { Employee, Seller, Agent, Admin, Buyer }
 
 public class User : ISoftDeletable
 {

@@ -60,6 +60,7 @@ public class AuthService(AppDbContext db, ITokenService tokenService, IConfigura
         {
             "agent"  => UserRole.Agent,
             "seller" => UserRole.Seller,
+            "buyer"  => UserRole.Buyer,
             _        => UserRole.Seller,
         };
 
