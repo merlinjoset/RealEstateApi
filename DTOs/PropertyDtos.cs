@@ -14,6 +14,8 @@ public class PropertyQueryParams
     public decimal? MinAreaCents { get; set; }
     public decimal? MaxAreaCents { get; set; }
     public bool? RoadAccess { get; set; }
+    /// <summary>"Free" or "VideoPromotion" — when set, restrict the list to that tier.</summary>
+    public string? MarketingPlan { get; set; }
     public string? SortBy { get; set; } = "newest";
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 12;

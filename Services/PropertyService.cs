@@ -74,6 +74,9 @@ public class PropertyService(
         if (q.MinAreaCents.HasValue) query = query.Where(p => p.AreaInCents >= q.MinAreaCents.Value);
         if (q.MaxAreaCents.HasValue) query = query.Where(p => p.AreaInCents <= q.MaxAreaCents.Value);
         if (q.RoadAccess.HasValue) query = query.Where(p => p.RoadAccess == q.RoadAccess.Value);
+        if (!string.IsNullOrWhiteSpace(q.MarketingPlan) &&
+            Enum.TryParse<MarketingPlan>(q.MarketingPlan, true, out var mpFilter))
+            query = query.Where(p => p.MarketingPlan == mpFilter);
 
         query = q.SortBy switch
         {

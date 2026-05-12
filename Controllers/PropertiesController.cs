@@ -38,6 +38,13 @@ public class PropertiesController(
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] PropertyQueryParams q)
     {
+        // Anonymous visitors only see Video Promotion (paid) listings — Free
+        // listings are reserved for signed-in buyers, which both protects
+        // sellers' direct contact details and gives us a stronger reason
+        // for buyers to register. Admins and any logged-in user see all tiers.
+        if (CurrentUserId is null)
+            q.MarketingPlan = "VideoPromotion";
+
         var result = await propertyService.GetAllAsync(q);
         return Ok(result);
     }
@@ -45,7 +52,10 @@ public class PropertiesController(
     [HttpGet("featured")]
     public async Task<IActionResult> GetFeatured()
     {
+        var anonymous = CurrentUserId is null;
         var result = await propertyService.GetFeaturedAsync();
+        if (anonymous)
+            result = result.Where(p => p.MarketingPlan == "VideoPromotion").ToList();
         return Ok(result);
     }
 
@@ -62,6 +72,13 @@ public class PropertiesController(
     {
         var result = await propertyService.GetByIdAsync(id);
         if (result is null) return NotFound();
+
+        // Free listings are gated behind login — return 401 so the frontend
+        // can route the user to /register?intent=buyer instead of leaking
+        // the property details.
+        if (CurrentUserId is null && result.MarketingPlan != "VideoPromotion")
+            return Unauthorized(new { code = "sign_in_required", message = "Sign in to view free listings." });
+
         return Ok(result);
     }
 
@@ -69,6 +86,8 @@ public class PropertiesController(
     public async Task<IActionResult> GetRelated(int id)
     {
         var result = await propertyService.GetRelatedAsync(id);
+        if (CurrentUserId is null)
+            result = result.Where(p => p.MarketingPlan == "VideoPromotion").ToList();
         return Ok(result);
     }
 
