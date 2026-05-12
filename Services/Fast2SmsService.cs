@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using RealEstateApi.Data;
@@ -61,6 +62,11 @@ public class Fast2SmsService(
             numbers = normalized,
         };
 
+        // Read the response body as a raw string FIRST so we can always log
+        // exactly what Fast2SMS sent back — even when it's an HTML error
+        // page or a JSON shape we don't expect (e.g. "message" as string vs.
+        // List<string>, which differs between auth-fail vs. success responses).
+        string rawBody = "(no body)";
         try
         {
             using var req = new HttpRequestMessage(HttpMethod.Post, "https://www.fast2sms.com/dev/bulkV2");
@@ -68,26 +74,39 @@ public class Fast2SmsService(
             req.Content = JsonContent.Create(payload);
 
             using var res = await http.SendAsync(req, ct);
-            var body = await res.Content.ReadFromJsonAsync<Fast2SmsResponse>(cancellationToken: ct);
+            rawBody = await res.Content.ReadAsStringAsync(ct);
+
+            // Best-effort deserialize — never let a parse error become the
+            // visible failure mode, since the raw body is already logged.
+            Fast2SmsResponse? body = null;
+            try { body = JsonSerializer.Deserialize<Fast2SmsResponse>(rawBody); }
+            catch (JsonException) { /* leave body null; rawBody covers it */ }
 
             if (res.IsSuccessStatusCode && body?.Return == true)
             {
                 log.LogInformation(
-                    "📱 [SMS sent via Fast2SMS] {Phone} (req {RequestId}): {Message}",
-                    normalized, body.RequestId, message);
+                    "📱 [SMS sent via Fast2SMS] {Phone} (req {RequestId})",
+                    normalized, body.RequestId);
             }
             else
             {
                 log.LogError(
-                    "📱 [SMS failed via Fast2SMS] {Phone} ({Status}): {Message} — response: {Response}",
-                    normalized, res.StatusCode, body?.Message ?? "(no message)", body);
+                    "📱 [SMS failed via Fast2SMS] {Phone} ({Status}) — response: {Body}",
+                    normalized, (int)res.StatusCode, Truncate(rawBody, 500));
             }
         }
         catch (Exception ex)
         {
-            log.LogError(ex, "📱 [SMS error via Fast2SMS] {Phone}", normalized);
+            log.LogError(ex,
+                "📱 [SMS error via Fast2SMS] {Phone} — raw response (if any): {Body}",
+                normalized, Truncate(rawBody, 500));
         }
     }
+
+    private static string Truncate(string s, int max) =>
+        string.IsNullOrEmpty(s) ? "(empty)"
+        : s.Length <= max ? s
+        : s[..max] + "…";
 
     public async Task NotifyAdminsAsync(string message, CancellationToken ct = default)
     {
@@ -122,6 +141,10 @@ public class Fast2SmsService(
         [property: JsonPropertyName("message")] List<string>? Messages
     )
     {
+        // Computed helper — NOT a JSON-serialized property. Without JsonIgnore
+        // the global camelCase naming policy would also map this to "message"
+        // and collide with `Messages`, which throws at deserialization time.
+        [JsonIgnore]
         public string Message => Messages is { Count: > 0 } ? string.Join(", ", Messages) : "";
     }
 }
