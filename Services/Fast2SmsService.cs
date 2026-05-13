@@ -37,14 +37,21 @@ public class Fast2SmsService(
     private string AuthKey => config["Sms:Fast2Sms:AuthKey"] ?? "";
 
     /// <summary>
-    /// Which Fast2SMS delivery route to use.
-    /// "otp" — bypasses TRAI DND, works for every Indian mobile. Best default
-    ///         for a real-estate app where most messages are transactional
-    ///         (inquiry confirmations, property approvals, OTP-style content).
-    /// "q"   — Quick / promotional. Cheaper per message but TRAI DND-blocked.
-    /// "dlt" — Requires DLT-registered templates and sender ID.
+    /// Which Fast2SMS delivery route to use. Dashboard menu name → API value:
+    ///
+    ///   "v3"   — "Quick SMS" tab. International gateway, manually approved,
+    ///            ~₹5/SMS, delivers to ALL Indian numbers including DND. No DLT
+    ///            and no website verification required. THIS IS THE DEFAULT.
+    ///   "otp"  — "OTP Message" tab. ~₹0.25/SMS, requires Fast2SMS website
+    ///            verification (TXT record / file upload to your domain).
+    ///   "dlt"  — "DLT SMS" tab. ~₹0.25/SMS, requires full TRAI DLT
+    ///            registration of sender ID + templates (1-2 wk process).
+    ///   "dlt_manual" — DLT but templates submitted manually per send.
+    ///   "q"    — Old Quick route. DND-blocked. Avoid.
+    ///
+    /// Override on Render via env var:  Sms__Fast2Sms__Route
     /// </summary>
-    private string Route => config["Sms:Fast2Sms:Route"] ?? "otp";
+    private string Route => config["Sms:Fast2Sms:Route"] ?? "v3";
 
     public async Task SendAsync(string toPhone, string message, CancellationToken ct = default)
     {
@@ -97,21 +104,21 @@ public class Fast2SmsService(
             if (res.IsSuccessStatusCode && body?.Return == true)
             {
                 log.LogInformation(
-                    "📱 [SMS sent via Fast2SMS] {Phone} (req {RequestId})",
-                    normalized, body.RequestId);
+                    "📱 [SMS sent via Fast2SMS · route={Route}] {Phone} (req {RequestId})",
+                    Route, normalized, body.RequestId);
             }
             else
             {
                 log.LogError(
-                    "📱 [SMS failed via Fast2SMS] {Phone} ({Status}) — response: {Body}",
-                    normalized, (int)res.StatusCode, Truncate(rawBody, 500));
+                    "📱 [SMS failed via Fast2SMS · route={Route}] {Phone} ({Status}) — response: {Body}",
+                    Route, normalized, (int)res.StatusCode, Truncate(rawBody, 500));
             }
         }
         catch (Exception ex)
         {
             log.LogError(ex,
-                "📱 [SMS error via Fast2SMS] {Phone} — raw response (if any): {Body}",
-                normalized, Truncate(rawBody, 500));
+                "📱 [SMS error via Fast2SMS · route={Route}] {Phone} — raw response (if any): {Body}",
+                Route, normalized, Truncate(rawBody, 500));
         }
     }
 
