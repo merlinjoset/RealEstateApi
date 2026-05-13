@@ -122,7 +122,9 @@ var app = builder.Build();
 // ── Provider banner — makes Render logs immediately tell you which adapters
 //    are active for SMS / WhatsApp without having to trigger a test send.
 var bootLog = app.Services.GetRequiredService<ILogger<Program>>();
-var smsProvider = string.IsNullOrWhiteSpace(fast2SmsKey) ? "Console (dev stub)" : "Fast2SMS";
+var smsProvider = string.IsNullOrWhiteSpace(fast2SmsKey)
+    ? "Console (dev stub)"
+    : $"Fast2SMS (route={builder.Configuration["Sms:Fast2Sms:Route"] ?? "otp"})";
 var waProvider  = string.IsNullOrWhiteSpace(metaWaToken) ? "Console (dev stub)" : "Meta Cloud API";
 bootLog.LogInformation("📨 Messaging providers — SMS: {Sms} · WhatsApp: {WA}", smsProvider, waProvider);
 

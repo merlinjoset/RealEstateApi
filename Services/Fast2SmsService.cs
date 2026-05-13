@@ -36,6 +36,16 @@ public class Fast2SmsService(
 {
     private string AuthKey => config["Sms:Fast2Sms:AuthKey"] ?? "";
 
+    /// <summary>
+    /// Which Fast2SMS delivery route to use.
+    /// "otp" — bypasses TRAI DND, works for every Indian mobile. Best default
+    ///         for a real-estate app where most messages are transactional
+    ///         (inquiry confirmations, property approvals, OTP-style content).
+    /// "q"   — Quick / promotional. Cheaper per message but TRAI DND-blocked.
+    /// "dlt" — Requires DLT-registered templates and sender ID.
+    /// </summary>
+    private string Route => config["Sms:Fast2Sms:Route"] ?? "otp";
+
     public async Task SendAsync(string toPhone, string message, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(AuthKey))
@@ -51,11 +61,13 @@ public class Fast2SmsService(
             return;
         }
 
-        // Quick SMS route — promotional, no DLT requirement.
         // Endpoint: https://www.fast2sms.com/dev/bulkV2
+        // Route is configurable — defaults to "otp" so we bypass TRAI DND and
+        // every Indian mobile receives the message. Flip Sms__Fast2Sms__Route
+        // to "q" if you only need promotional sends to non-DND numbers.
         var payload = new
         {
-            route = "q",          // "q" = Quick (no DLT). Use "dlt" for DLT-registered.
+            route = Route,
             message,
             language = "english",
             flash = 0,
