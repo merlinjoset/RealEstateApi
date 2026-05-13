@@ -170,9 +170,8 @@ public class InquiriesController(
 
         var assignee = await db.Users.FindAsync(req.AssignedToUserId);
         if (assignee is null) return BadRequest(new { message = "Assignee not found" });
-        if (assignee.Role != UserRole.Employee && assignee.Role != UserRole.Agent
-            && assignee.Role != UserRole.Admin)
-            return BadRequest(new { message = "Inquiries can only be assigned to Employees, Agents, or Admins" });
+        if (assignee.Role != UserRole.Employee || !assignee.IsActive)
+            return BadRequest(new { message = "Inquiries can only be assigned to active Employees." });
 
         inquiry.AssignedToUserId = assignee.Id;
         inquiry.AssignedAt = DateTime.UtcNow;

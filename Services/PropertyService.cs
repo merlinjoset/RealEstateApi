@@ -248,12 +248,9 @@ public class PropertyService(
         if (prop is null) return null;
 
         var assignee = await db.Users.FindAsync(userId);
-        if (assignee is null || !assignee.IsActive
-            || (assignee.Role != UserRole.Employee
-                && assignee.Role != UserRole.Agent
-                && assignee.Role != UserRole.Admin))
+        if (assignee is null || !assignee.IsActive || assignee.Role != UserRole.Employee)
         {
-            throw new ArgumentException("Verification can only be assigned to active Employees, Agents, or Admins.");
+            throw new ArgumentException("Verification can only be assigned to active Employees.");
         }
 
         prop.AssignedToVerifyUserId = userId;
