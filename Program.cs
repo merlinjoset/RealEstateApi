@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -23,9 +25,16 @@ if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
         $"Current length: {jwtKey?.Length ?? 0}.");
 }
 
+// Disable the historical inbound-claim mapping that rewrites short JWT
+// claim names like "role" to the schema URI form — without this, the role
+// in the token sometimes lands on a different claim type than the
+// [Authorize(Roles="Admin")] check expects, and admins get a silent 403.
+JwtSecurityTokenHandler.DefaultMapInboundClaims = false;
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opt =>
     {
+        opt.MapInboundClaims = false;
         opt.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
@@ -36,6 +45,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = builder.Configuration["Jwt:Audience"],
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero,
+            // Be explicit about which claim types Authorize() reads — the
+            // TokenService writes both of these on every access token.
+            NameClaimType = ClaimTypes.NameIdentifier,
+            RoleClaimType = ClaimTypes.Role,
         };
     });
 
