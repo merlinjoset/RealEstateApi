@@ -55,6 +55,15 @@ public class Property : ISoftDeletable
     public User? Agent { get; set; }
     public int? SubmittedByUserId { get; set; }
     public User? SubmittedByUser { get; set; }
+
+    /// <summary>
+    /// Employee/Agent assigned by an Admin to verify the property — site
+    /// visit, document check, photo capture. Null until an admin assigns
+    /// someone from the Pending Approvals queue.
+    /// </summary>
+    public int? AssignedToVerifyUserId { get; set; }
+    public User? AssignedToVerifyUser { get; set; }
+    public DateTime? AssignedToVerifyAt { get; set; }
     // Anonymous submitter contact (used when SubmittedByUser is null —
     // someone submitted via the public /sell page without registering).
     public string? SubmitterName { get; set; }

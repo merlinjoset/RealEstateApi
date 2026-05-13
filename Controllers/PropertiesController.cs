@@ -198,6 +198,27 @@ public class PropertiesController(
         return Ok(result);
     }
 
+    /// <summary>
+    /// Admin assigns a pending property to an Employee/Agent/Admin for the
+    /// verification step (site visit, document check, photos). Triggers a
+    /// WhatsApp/SMS to the assignee.
+    /// </summary>
+    [HttpPatch("{id:int}/assign")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> AssignToVerify(int id, [FromBody] AssignPropertyRequest req)
+    {
+        try
+        {
+            var result = await propertyService.AssignToVerifyAsync(id, req.AssignedToUserId);
+            if (result is null) return NotFound();
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpPost("{id:int}/favorite")]
     [Authorize]
     public async Task<IActionResult> ToggleFavorite(int id)

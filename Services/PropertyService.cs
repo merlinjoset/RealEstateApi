@@ -15,6 +15,7 @@ public interface IPropertyService
     Task<PropertyDto?> UpdateAsync(int id, UpdatePropertyRequest req);
     Task<bool> DeleteAsync(int id);
     Task<PropertyDto?> ApproveOrRejectAsync(int id, ApprovalRequest req);
+    Task<PropertyDto?> AssignToVerifyAsync(int id, int userId);
     Task<List<PropertyDto>> GetPendingAsync();
     Task<bool> ToggleFavoriteAsync(int propertyId, int userId);
     Task<List<PropertyDto>> GetFavoritesAsync(int userId);
@@ -44,6 +45,11 @@ public class PropertyService(
             ? $"{p.SubmittedByUser.FirstName} {p.SubmittedByUser.LastName}"
             : p.SubmitterName,
         p.SubmittedByUser?.Phone ?? p.SubmitterPhone,
+        p.AssignedToVerifyUserId,
+        p.AssignedToVerifyUser != null
+            ? $"{p.AssignedToVerifyUser.FirstName} {p.AssignedToVerifyUser.LastName}"
+            : null,
+        p.AssignedToVerifyAt,
         p.CreatedAt, p.UpdatedAt
     );
 
@@ -222,10 +228,64 @@ public class PropertyService(
     public async Task<List<PropertyDto>> GetPendingAsync() =>
         (await db.Properties
             .Include(p => p.SubmittedByUser)
+            .Include(p => p.AssignedToVerifyUser)
             .Where(p => p.ApprovalStatus == ApprovalStatus.Pending)
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync())
         .Select(ToDto).ToList();
+
+    /// <summary>
+    /// Admin hands a pending property off to an Employee/Agent/Admin to do
+    /// the verification work (site visit, document check, photos). The
+    /// assignee gets pinged via WhatsApp/SMS using the property.assignedForVerification template.
+    /// </summary>
+    public async Task<PropertyDto?> AssignToVerifyAsync(int id, int userId)
+    {
+        var prop = await db.Properties
+            .Include(p => p.SubmittedByUser)
+            .Include(p => p.AssignedToVerifyUser)
+            .FirstOrDefaultAsync(p => p.Id == id);
+        if (prop is null) return null;
+
+        var assignee = await db.Users.FindAsync(userId);
+        if (assignee is null || !assignee.IsActive
+            || (assignee.Role != UserRole.Employee
+                && assignee.Role != UserRole.Agent
+                && assignee.Role != UserRole.Admin))
+        {
+            throw new ArgumentException("Verification can only be assigned to active Employees, Agents, or Admins.");
+        }
+
+        prop.AssignedToVerifyUserId = userId;
+        prop.AssignedToVerifyUser = assignee;
+        prop.AssignedToVerifyAt = DateTime.UtcNow;
+        prop.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+
+        // Best-effort notification to the assignee — uses the new
+        // property.assignedForVerification SMS template (seeded with id 11).
+        if (!string.IsNullOrWhiteSpace(assignee.Phone))
+        {
+            var submitter = prop.SubmittedByUser != null
+                ? $"{prop.SubmittedByUser.FirstName} {prop.SubmittedByUser.LastName}"
+                : prop.SubmitterName ?? "the seller";
+            var submitterPhone = prop.SubmittedByUser?.Phone ?? prop.SubmitterPhone ?? "";
+
+            var body = await templates.RenderAsync("property.assignedForVerification", new Dictionary<string, string?>
+            {
+                ["assigneeFirstName"] = assignee.FirstName,
+                ["title"]             = prop.Title,
+                ["city"]              = prop.City,
+                ["submitter"]         = submitter,
+                ["submitterPhone"]    = submitterPhone,
+                ["propertyId"]        = prop.Id.ToString(),
+            });
+            if (!string.IsNullOrWhiteSpace(body))
+                await notifications.SendAsync(assignee.Phone!, body, preferWhatsApp: true);
+        }
+
+        return ToDto(prop);
+    }
 
     public async Task<PropertyDto?> ApproveOrRejectAsync(int id, ApprovalRequest req)
     {

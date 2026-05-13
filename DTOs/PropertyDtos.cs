@@ -52,9 +52,14 @@ public record PropertyDto(
     int? AgentId,
     string? SubmittedByName,
     string? SubmittedByPhone,
+    int? AssignedToVerifyUserId,
+    string? AssignedToVerifyName,
+    DateTime? AssignedToVerifyAt,
     DateTime CreatedAt,
     DateTime UpdatedAt
 );
+
+public record AssignPropertyRequest([Required] int AssignedToUserId);
 
 public record CreatePropertyRequest(
     [Required, MaxLength(200)] string Title,

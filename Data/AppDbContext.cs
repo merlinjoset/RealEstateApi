@@ -194,6 +194,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 Description = "6-digit OTP sent when a user starts the forgot-password flow.",
                 Body = "Hi {name}, your Jose For Land password reset code is {otp}. Valid for {minutes} minutes. Do not share this code with anyone.",
                 AvailableVars = "name,otp,minutes",
+                CreatedAt = seedDate, UpdatedAt = seedDate },
+            new SmsTemplate { Id = 11, Key = "property.assignedForVerification", Label = "Property — verification assignment",
+                Description = "Sent to an Employee/Agent when an admin assigns them a property to verify.",
+                Body = "🏷 Hi {assigneeFirstName}, you've been assigned property #{propertyId} '{title}' in {city} to verify. Seller: {submitter} ({submitterPhone}). Please schedule a site visit.",
+                AvailableVars = "assigneeFirstName,title,city,submitter,submitterPhone,propertyId",
                 CreatedAt = seedDate, UpdatedAt = seedDate }
         );
 
