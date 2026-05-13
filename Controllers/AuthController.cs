@@ -108,4 +108,29 @@ public class AuthController(IAuthService authService, IRsaKeyService rsa) : Cont
         if (!ok) return BadRequest(new { message = "Current password is incorrect" });
         return NoContent();
     }
+
+    /// <summary>
+    /// Kick off the forgot-password flow. Always returns 200 — never reveals
+    /// whether an email is registered (prevents account enumeration). The
+    /// real work (OTP issue + SMS/email send) happens inside the service.
+    /// </summary>
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest req)
+    {
+        await authService.RequestPasswordResetAsync(req);
+        return Ok(new { message = "If that email is registered, a reset code is on its way." });
+    }
+
+    /// <summary>
+    /// Consume the OTP from the forgot-password flow and set a new password.
+    /// </summary>
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest req)
+    {
+        var ok = await authService.ResetPasswordWithOtpAsync(req);
+        if (!ok) return BadRequest(new { message = "Invalid or expired reset code." });
+        return Ok(new { message = "Password reset successfully. You can now sign in." });
+    }
 }

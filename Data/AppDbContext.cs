@@ -189,6 +189,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 Description = "Notifies admins when a buyer requests verified documents for a property.",
                 Body = "📄 DOCUMENT REQUEST from {name} ({phone}) for property #{propertyId}. They want to view EC/Patta/Chitta etc. Call them within 2-5 hrs with copies.",
                 AvailableVars = "name,phone,propertyId,type",
+                CreatedAt = seedDate, UpdatedAt = seedDate },
+            new SmsTemplate { Id = 10, Key = "password.reset.otp", Label = "Password reset — OTP",
+                Description = "6-digit OTP sent when a user starts the forgot-password flow.",
+                Body = "Hi {name}, your Jose For Land password reset code is {otp}. Valid for {minutes} minutes. Do not share this code with anyone.",
+                AvailableVars = "name,otp,minutes",
                 CreatedAt = seedDate, UpdatedAt = seedDate }
         );
 

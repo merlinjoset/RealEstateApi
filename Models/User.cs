@@ -26,6 +26,15 @@ public class User : ISoftDeletable
     public DateTime? LastActiveAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// BCrypt hash of a 6-digit OTP issued by the forgot-password flow. Set
+    /// when /auth/forgot-password is called, cleared once /auth/reset-password
+    /// successfully consumes it (or when it expires).
+    /// </summary>
+    [JsonIgnore]
+    public string? PasswordResetOtpHash { get; set; }
+    public DateTime? PasswordResetExpiresAt { get; set; }
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAt { get; set; }
 

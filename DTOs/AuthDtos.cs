@@ -52,3 +52,11 @@ public record UpdateProfileRequest(
     [Required, EmailAddress] string Email,
     string? Phone
 );
+
+public record ForgotPasswordRequest([Required, EmailAddress] string Email);
+
+public record ResetPasswordRequest(
+    [Required, EmailAddress] string Email,
+    [Required, MinLength(6), MaxLength(6)] string Otp,
+    [Required, MinLength(8)] string NewPassword
+);
