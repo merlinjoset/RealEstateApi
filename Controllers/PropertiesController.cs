@@ -228,6 +228,28 @@ public class PropertiesController(
         }
     }
 
+    /// <summary>
+    /// Assigned verifier (or Admin) submits site-visit findings. The notes
+    /// are stored on the property and admins are pinged so they can review
+    /// and approve / reject.
+    /// </summary>
+    [HttpPatch("{id:int}/verification")]
+    [Authorize]
+    public async Task<IActionResult> SubmitVerification(int id, [FromBody] SubmitVerificationRequest req)
+    {
+        try
+        {
+            var result = await propertyService.SubmitVerificationAsync(
+                id, CurrentUserId!.Value, IsAdmin, req.Notes);
+            if (result is null) return NotFound();
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
+        }
+    }
+
     [HttpPost("{id:int}/favorite")]
     [Authorize]
     public async Task<IActionResult> ToggleFavorite(int id)

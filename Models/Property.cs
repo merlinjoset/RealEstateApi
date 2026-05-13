@@ -64,6 +64,15 @@ public class Property : ISoftDeletable
     public int? AssignedToVerifyUserId { get; set; }
     public User? AssignedToVerifyUser { get; set; }
     public DateTime? AssignedToVerifyAt { get; set; }
+
+    /// <summary>
+    /// Free-form findings from the assigned verifier — site-visit notes,
+    /// document status, photo links, anything the Admin needs to decide
+    /// whether to approve or reject.
+    /// </summary>
+    public string? VerificationNotes { get; set; }
+    /// <summary>Timestamp of the last verification-notes submission.</summary>
+    public DateTime? VerificationDoneAt { get; set; }
     // Anonymous submitter contact (used when SubmittedByUser is null —
     // someone submitted via the public /sell page without registering).
     public string? SubmitterName { get; set; }

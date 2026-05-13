@@ -55,11 +55,15 @@ public record PropertyDto(
     int? AssignedToVerifyUserId,
     string? AssignedToVerifyName,
     DateTime? AssignedToVerifyAt,
+    string? VerificationNotes,
+    DateTime? VerificationDoneAt,
     DateTime CreatedAt,
     DateTime UpdatedAt
 );
 
 public record AssignPropertyRequest([Required] int AssignedToUserId);
+
+public record SubmitVerificationRequest([Required] string Notes);
 
 public record CreatePropertyRequest(
     [Required, MaxLength(200)] string Title,

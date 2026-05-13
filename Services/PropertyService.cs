@@ -16,6 +16,8 @@ public interface IPropertyService
     Task<bool> DeleteAsync(int id);
     Task<PropertyDto?> ApproveOrRejectAsync(int id, ApprovalRequest req);
     Task<PropertyDto?> AssignToVerifyAsync(int id, int userId);
+    /// <summary>Assigned verifier (or Admin) submits site-visit findings.</summary>
+    Task<PropertyDto?> SubmitVerificationAsync(int id, int currentUserId, bool isAdmin, string notes);
     Task<List<PropertyDto>> GetPendingAsync();
     Task<bool> ToggleFavoriteAsync(int propertyId, int userId);
     Task<List<PropertyDto>> GetFavoritesAsync(int userId);
@@ -52,6 +54,8 @@ public class PropertyService(
             ? $"{p.AssignedToVerifyUser.FirstName} {p.AssignedToVerifyUser.LastName}"
             : null,
         p.AssignedToVerifyAt,
+        p.VerificationNotes,
+        p.VerificationDoneAt,
         p.CreatedAt, p.UpdatedAt
     );
 
@@ -282,6 +286,42 @@ public class PropertyService(
             if (!string.IsNullOrWhiteSpace(body))
                 await notifications.SendAsync(assignee.Phone!, body, preferWhatsApp: true);
         }
+
+        return ToDto(prop);
+    }
+
+    public async Task<PropertyDto?> SubmitVerificationAsync(int id, int currentUserId, bool isAdmin, string notes)
+    {
+        var prop = await db.Properties
+            .Include(p => p.SubmittedByUser)
+            .Include(p => p.AssignedToVerifyUser)
+            .FirstOrDefaultAsync(p => p.Id == id);
+        if (prop is null) return null;
+
+        // Only the assigned verifier or an Admin can submit findings.
+        if (!isAdmin && prop.AssignedToVerifyUserId != currentUserId)
+            throw new UnauthorizedAccessException(
+                "Only the assigned verifier or an Admin can submit verification notes for this property.");
+
+        prop.VerificationNotes = notes;
+        prop.VerificationDoneAt = DateTime.UtcNow;
+        prop.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+
+        // Broadcast to admins so they can come review the notes and approve / reject.
+        var actor = prop.AssignedToVerifyUser is null
+            ? "An admin"
+            : $"{prop.AssignedToVerifyUser.FirstName} {prop.AssignedToVerifyUser.LastName}";
+        var snippet = notes.Length > 80 ? notes[..80] + "…" : notes;
+        var body = await templates.RenderAsync("property.verificationSubmitted", new Dictionary<string, string?>
+        {
+            ["actor"]      = actor,
+            ["title"]      = prop.Title,
+            ["propertyId"] = prop.Id.ToString(),
+            ["notes"]      = snippet,
+        });
+        if (!string.IsNullOrWhiteSpace(body))
+            await notifications.NotifyAdminsAsync(body);
 
         return ToDto(prop);
     }

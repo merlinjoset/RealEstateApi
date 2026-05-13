@@ -199,6 +199,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 Description = "Sent to an Employee/Agent when an admin assigns them a property to verify.",
                 Body = "🏷 Hi {assigneeFirstName}, you've been assigned property #{propertyId} '{title}' in {city} to verify. Seller: {submitter} ({submitterPhone}). Please schedule a site visit.",
                 AvailableVars = "assigneeFirstName,title,city,submitter,submitterPhone,propertyId",
+                CreatedAt = seedDate, UpdatedAt = seedDate },
+            new SmsTemplate { Id = 12, Key = "property.verificationSubmitted", Label = "Property — verification submitted",
+                Description = "Notifies admins after the assigned verifier submits their site-visit findings.",
+                Body = "✅ {actor} submitted verification for property #{propertyId} '{title}'. Notes: {notes}. Review at /admin/pending/{propertyId}.",
+                AvailableVars = "actor,title,propertyId,notes",
                 CreatedAt = seedDate, UpdatedAt = seedDate }
         );
 
