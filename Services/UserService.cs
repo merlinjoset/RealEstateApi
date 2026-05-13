@@ -95,6 +95,15 @@ public class UserService(AppDbContext db) : IUserService
         if (!Enum.TryParse<UserRole>(req.Role, ignoreCase: true, out var role))
             throw new ArgumentException($"Invalid role: {req.Role}");
 
+        // Email uniqueness applies only to active, non-deleted users — so an
+        // address belonging to a deactivated / soft-deleted account is free
+        // to reuse for a fresh registration. (The global query filter on
+        // ISoftDeletable already hides IsDeleted rows; we add IsActive on top.)
+        var emailTaken = await db.Users.AnyAsync(x =>
+            x.Email == req.Email && x.IsActive);
+        if (emailTaken)
+            throw new ArgumentException("Email is already in use by an active account.");
+
         var u = new User
         {
             FirstName = req.FirstName,
@@ -122,6 +131,15 @@ public class UserService(AppDbContext db) : IUserService
 
         if (!Enum.TryParse<UserRole>(req.Role, ignoreCase: true, out var role))
             throw new ArgumentException($"Invalid role: {req.Role}");
+
+        // If the email is being changed, make sure no other active user owns it.
+        if (!string.Equals(u.Email, req.Email, StringComparison.OrdinalIgnoreCase))
+        {
+            var emailTakenByOther = await db.Users.AnyAsync(x =>
+                x.Id != id && x.Email == req.Email && x.IsActive);
+            if (emailTakenByOther)
+                throw new ArgumentException("Email is already in use by another active account.");
+        }
 
         u.FirstName = req.FirstName;
         u.LastName = req.LastName;

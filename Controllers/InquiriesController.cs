@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RealEstateApi.Data;
@@ -127,6 +129,35 @@ public class InquiriesController(
             .ToListAsync();
 
         return Ok(new { data = items, total, page, pageSize });
+    }
+
+    /// <summary>
+    /// Inquiries assigned to the current user. Backs the Employee "My Work"
+    /// page — returns a raw array (not paginated) since the volume per user
+    /// is small.
+    /// </summary>
+    [HttpGet("mine")]
+    [Authorize]
+    public async Task<IActionResult> GetMineAssigned()
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var items = await db.Inquiries
+            .Include(i => i.Property)
+            .Include(i => i.AssignedToUser)
+            .Where(i => i.AssignedToUserId == userId)
+            .OrderByDescending(i => i.CreatedAt)
+            .Select(i => new InquiryDto(
+                i.Id, i.Name, i.Phone, i.Email, i.Message,
+                i.PreferredContact.ToString(), i.Type.ToString(), i.IsRead,
+                i.Status.ToString(), i.Notes,
+                i.PropertyId, i.Property != null ? i.Property.Title : null,
+                i.AssignedToUserId,
+                i.AssignedToUser != null
+                    ? i.AssignedToUser.FirstName + " " + i.AssignedToUser.LastName
+                    : null,
+                i.AssignedAt, i.LastUpdatedAt, i.CreatedAt))
+            .ToListAsync();
+        return Ok(items);
     }
 
     [HttpGet("{id:int}")]

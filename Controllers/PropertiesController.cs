@@ -177,6 +177,15 @@ public class PropertiesController(
     public async Task<IActionResult> GetMine() =>
         Ok(await propertyService.GetMineAsync(CurrentUserId!.Value));
 
+    /// <summary>
+    /// Pending properties the current Employee has been assigned to verify.
+    /// Used by the Employee "My Work" page.
+    /// </summary>
+    [HttpGet("assigned-to-verify")]
+    [Authorize]
+    public async Task<IActionResult> GetAssignedToVerify() =>
+        Ok(await propertyService.GetAssignedToVerifyAsync(CurrentUserId!.Value));
+
     [HttpDelete("{id:int}")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(int id)

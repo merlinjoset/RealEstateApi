@@ -35,6 +35,13 @@ public class UsersController(IUserService users) : ControllerBase
             var created = await users.CreateAsync(req);
             return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
         }
+        // ArgumentException is the explicit "email already in use by an
+        // active account" + invalid-role path — return 409 so the frontend
+        // can surface it the same way as a unique-constraint conflict.
+        catch (ArgumentException ex) when (ex.Message.Contains("Email", StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict(new { message = ex.Message });
+        }
         catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
         catch (Exception ex) when (ex.Message.Contains("unique") || ex.InnerException?.Message.Contains("unique") == true)
         {

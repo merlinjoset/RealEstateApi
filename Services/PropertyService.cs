@@ -20,6 +20,8 @@ public interface IPropertyService
     Task<bool> ToggleFavoriteAsync(int propertyId, int userId);
     Task<List<PropertyDto>> GetFavoritesAsync(int userId);
     Task<List<PropertyDto>> GetMineAsync(int userId);
+    /// <summary>Properties assigned to <paramref name="userId"/> to verify.</summary>
+    Task<List<PropertyDto>> GetAssignedToVerifyAsync(int userId);
     Task<PropertyDto?> UpdateAsOwnerAsync(int id, int userId, UpdatePropertyRequest req);
 }
 
@@ -384,6 +386,16 @@ public class PropertyService(
             .Include(p => p.SubmittedByUser)
             .Where(p => p.SubmittedByUserId == userId || p.AgentId == userId)
             .OrderByDescending(p => p.CreatedAt)
+            .ToListAsync())
+        .Select(ToDto).ToList();
+
+    public async Task<List<PropertyDto>> GetAssignedToVerifyAsync(int userId) =>
+        (await db.Properties
+            .Include(p => p.SubmittedByUser)
+            .Include(p => p.AssignedToVerifyUser)
+            .Where(p => p.AssignedToVerifyUserId == userId
+                        && p.ApprovalStatus == ApprovalStatus.Pending)
+            .OrderByDescending(p => p.AssignedToVerifyAt)
             .ToListAsync())
         .Select(ToDto).ToList();
 
