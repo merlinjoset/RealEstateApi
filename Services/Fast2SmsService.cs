@@ -39,21 +39,24 @@ public class Fast2SmsService(
     /// <summary>
     /// Which Fast2SMS delivery route to use. Dashboard menu name → API value:
     ///
-    ///   "p"    — "Quick SMS" tab. Promotional international gateway, manually
-    ///            approved, ~₹5/SMS, delivers to ALL Indian numbers including
-    ///            DND. No DLT, no website verification. THIS IS THE DEFAULT.
-    ///   "v3"   — Old name for the same route. Deprecated by Fast2SMS, returns
-    ///            status_code 990 if used today.
+    ///   "q"    — "Quick SMS" tab. International gateway, manually approved,
+    ///            ~₹5/SMS. THIS IS THE DEFAULT — it's the only route the
+    ///            account is provisioned for without extra setup. ⚠ Fast2SMS
+    ///            still attempts DND filtering on this route — numbers on
+    ///            the TRAI DND registry may not receive the SMS even though
+    ///            the API returns 200 + a request ID. Check Fast2SMS'
+    ///            "Delivery Reports" page for the actual delivery state.
     ///   "otp"  — "OTP Message" tab. ~₹0.25/SMS, requires Fast2SMS website
     ///            verification (TXT record / file upload to your domain).
     ///   "dlt"  — "DLT SMS" tab. ~₹0.25/SMS, requires full TRAI DLT
     ///            registration of sender ID + templates (1-2 wk process).
+    ///            ONLY route that guarantees delivery to DND numbers.
     ///   "dlt_manual" — DLT but templates submitted manually per send.
-    ///   "q"    — Old Quick route. DND-blocked. Avoid.
+    ///   "p" / "v3" — Deprecated. Return status_code 990 "old API".
     ///
     /// Override on Render via env var:  Sms__Fast2Sms__Route
     /// </summary>
-    private string Route => config["Sms:Fast2Sms:Route"] ?? "p";
+    private string Route => config["Sms:Fast2Sms:Route"] ?? "q";
 
     public async Task SendAsync(string toPhone, string message, CancellationToken ct = default)
     {
