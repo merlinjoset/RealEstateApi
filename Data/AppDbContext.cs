@@ -147,7 +147,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         mb.Entity<SmsTemplate>().HasData(
             new SmsTemplate { Id = 1, Key = "inquiry.confirmation", Label = "Inquiry — visitor confirmation",
                 Description = "Sent to the public visitor right after they submit an inquiry. Includes the property title when the inquiry was attached to a listing.",
-                Body = "Hi {name}, thank you for reaching Jose For Land{propertyContext}. Our team will call you back within 2-5 hours. For urgent help, dial +91 99944 88490.",
+                Body = "Hi {name}, thank you for reaching Jose For Land{propertyContext}. Our team will call you back within 2-5 hours. For urgent help, dial 99944 88490.",
                 AvailableVars = "name,phone,propertyId,propertyTitle,propertyContext",
                 CreatedAt = seedDate, UpdatedAt = seedDate },
             new SmsTemplate { Id = 2, Key = "inquiry.adminNotification", Label = "Inquiry — admin alert",
@@ -182,7 +182,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 CreatedAt = seedDate, UpdatedAt = seedDate },
             new SmsTemplate { Id = 8, Key = "property.rejected", Label = "Property — rejected",
                 Description = "Sent to the seller if their property is rejected by an admin.",
-                Body = "Hi {name}, your submission '{title}' could not be approved.{reasonSuffix} Call +91 99944 88490 for help.",
+                Body = "Hi {name}, your submission '{title}' could not be approved.{reasonSuffix} Call 99944 88490 for help.",
                 AvailableVars = "name,title,reasonSuffix",
                 CreatedAt = seedDate, UpdatedAt = seedDate },
             new SmsTemplate { Id = 9, Key = "inquiry.documentRequest", Label = "Inquiry — document request alert",
@@ -207,7 +207,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 CreatedAt = seedDate, UpdatedAt = seedDate },
             new SmsTemplate { Id = 13, Key = "inquiry.documentRequestConfirmation", Label = "Inquiry — document request visitor confirmation",
                 Description = "Sent to the visitor right after they click 'Request to view documents' on a property — calls out that it's a document request and which property it's for.",
-                Body = "Hi {name}, your request for documents{propertyContext} has been received. Our team will share EC / Patta / Chitta copies within 2-5 hours. Urgent? Call +91 99944 88490.",
+                Body = "Hi {name}, your request for documents{propertyContext} has been received. Our team will share EC / Patta / Chitta copies within 2-5 hours. Urgent? Call 99944 88490.",
                 AvailableVars = "name,phone,propertyId,propertyTitle,propertyContext",
                 CreatedAt = seedDate, UpdatedAt = seedDate }
         );
