@@ -62,6 +62,7 @@ builder.Services.AddScoped<IPropertyService, PropertyService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ITestimonialService, TestimonialService>();
 builder.Services.AddScoped<ISmsTemplateService, SmsTemplateService>();
+builder.Services.AddScoped<ISiteSettingService, SiteSettingService>();
 // SMS — Fast2SMS when configured (free tier, no DLT), Console fallback for dev.
 var fast2SmsKey = builder.Configuration["Sms:Fast2Sms:AuthKey"];
 if (!string.IsNullOrWhiteSpace(fast2SmsKey))

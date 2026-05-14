@@ -12,6 +12,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SavedProperty> SavedProperties => Set<SavedProperty>();
     public DbSet<Testimonial> Testimonials => Set<Testimonial>();
     public DbSet<SmsTemplate> SmsTemplates => Set<SmsTemplate>();
+    public DbSet<SiteSetting> SiteSettings => Set<SiteSetting>();
 
     /// <summary>
     /// Override SaveChanges to convert any Remove() calls on ISoftDeletable
@@ -211,6 +212,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 AvailableVars = "name,phone,propertyId,propertyTitle,propertyContext",
                 CreatedAt = seedDate, UpdatedAt = seedDate }
         );
+
+        // Singleton site-settings row — admin can edit these from
+        // /admin/settings → Social tab. Hard-coded URLs continue to work
+        // as fallbacks if this row is ever missing.
+        mb.Entity<SiteSetting>().HasData(
+            new SiteSetting
+            {
+                Id = 1,
+                FacebookUrl  = "https://facebook.com/joseforland",
+                InstagramUrl = "https://instagram.com/joseforland",
+                YoutubeUrl   = "https://youtube.com/@joseforland",
+                WebsiteUrl   = "",
+                UpdatedAt    = seedDate,
+            });
 
         // Testimonials seed
         mb.Entity<Testimonial>().HasData(
