@@ -58,6 +58,21 @@ public class InquiriesController(
         db.Inquiries.Add(inquiry);
         await db.SaveChangesAsync();
 
+        // Look up the property title once — used in both the admin broadcast
+        // and the visitor's confirmation so they can see which listing this
+        // inquiry was about.
+        string? propertyTitle = null;
+        if (req.PropertyId is int pid)
+        {
+            propertyTitle = await db.Properties
+                .Where(p => p.Id == pid)
+                .Select(p => p.Title)
+                .FirstOrDefaultAsync();
+        }
+        var propertyContext = propertyTitle is not null
+            ? $" regarding \"{propertyTitle}\""
+            : req.PropertyId is null ? "" : $" re property #{req.PropertyId}";
+
         // Pick a more specific template when this is a document request,
         // otherwise fall back to the general adminNotification.
         var adminTemplateKey = type == InquiryType.DocumentRequest
@@ -69,19 +84,26 @@ public class InquiriesController(
             ["name"] = req.Name,
             ["phone"] = req.Phone,
             ["type"] = type.ToString(),
-            ["propertyContext"] = req.PropertyId is null ? "" : $" re property #{req.PropertyId}",
+            ["propertyContext"] = propertyContext,
             ["propertyId"] = req.PropertyId?.ToString() ?? "",
+            ["propertyTitle"] = propertyTitle ?? "",
         });
 
-        // Visitor confirmation — uses the inquiry.confirmation template from the
-        // app's SMS template store; sent via WhatsApp first if they preferred it,
-        // automatic fallback to SMS when number isn't on WhatsApp.
-        await SendIfRendered(req.Phone, "inquiry.confirmation",
+        // Visitor confirmation. Pick a document-request-specific template
+        // when they came in via "Request to view documents" so the SMS calls
+        // that out explicitly; otherwise the generic confirmation.
+        var visitorTemplateKey = type == InquiryType.DocumentRequest
+            ? "inquiry.documentRequestConfirmation"
+            : "inquiry.confirmation";
+
+        await SendIfRendered(req.Phone, visitorTemplateKey,
             new Dictionary<string, string?>
             {
                 ["name"] = req.Name,
                 ["phone"] = req.Phone,
                 ["propertyId"] = req.PropertyId?.ToString() ?? "",
+                ["propertyTitle"] = propertyTitle ?? "",
+                ["propertyContext"] = propertyContext,
             },
             preferWhatsApp: pc == PreferredContact.WhatsApp);
 
