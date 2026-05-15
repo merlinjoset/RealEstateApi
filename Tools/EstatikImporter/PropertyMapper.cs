@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using RealEstateApi.Models;
 
 namespace EstatikImporter;
@@ -6,36 +7,54 @@ namespace EstatikImporter;
 /// <summary>
 /// WordPress / Estatik record → our <see cref="Property"/> entity.
 ///
-/// ⚠ The meta-key names below are the *best-guess* defaults for Estatik. The
-/// actual keys vary between Estatik versions and per-site customisations —
-/// run the importer in --analyze mode first to see the real keys for the
-/// site being migrated, then patch this file before --import.
+/// Confirmed against the joseforland.com 2026-05-15 WXR export — keys
+/// below match what Estatik actually stores on that install.
 /// </summary>
 public static class PropertyMapper
 {
-    public static Property? FromWpItem(WpItem item)
-    {
-        // Skip drafts / trashed entries — only migrate published listings.
-        if (item.Status is not ("publish" or "publish_pending"))
-            return null;
+    /// <summary>The es_property_price_note often spells out the area in
+    /// cents (e.g. "7 Cents (10.5 Lakh/cent)"). Pull that out preferentially
+    /// since es_property_area is in square feet on this install and the
+    /// India-friendly unit is cents.</summary>
+    private static readonly Regex CentsInNote = new(
+        @"(?<value>\d+(?:\.\d+)?)\s*Cents?",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-        var price = ParseDecimal(item.GetMeta("_es_price", "es_price", "price"));
-        var area  = ParseDecimal(item.GetMeta("_es_size", "es_size", "size", "area"));
-        if (price is null || area is null)
+    public static Property? FromWpItem(WpItem item, AttachmentMap attachments)
+    {
+        // Skip drafts / pending / trashed — only migrate published rows.
+        if (item.Status != "publish") return null;
+
+        var price = ParseDecimal(item.GetMeta("es_property_price"));
+        if (price is null || price.Value <= 0)
         {
-            // Estatik occasionally stores price/size in different units —
-            // if both are missing skip the row instead of writing garbage.
-            // The analyze pass should tell us which keys are actually populated.
-            Console.WriteLine($"  ⚠ skip #{item.PostId} '{item.Title}' (missing price or area)");
+            Console.WriteLine($"  ⚠ skip #{item.PostId} '{Truncate(item.Title, 50)}' (no price)");
             return null;
         }
 
-        var lat = ParseDouble(item.GetMeta("_es_lat", "es_lat", "lat", "latitude"));
-        var lng = ParseDouble(item.GetMeta("_es_lng", "es_lng", "lng", "longitude"));
+        var (areaInCents, areaInSqFt) = ParseArea(item);
+        if (areaInCents is null)
+        {
+            Console.WriteLine($"  ⚠ skip #{item.PostId} '{Truncate(item.Title, 50)}' (no area)");
+            return null;
+        }
 
-        // Strip rudimentary HTML from the post_content. WordPress stores blocks
-        // / shortcodes / inline styles; we want a plain-text description.
-        var description = StripHtml(item.Content);
+        // Estatik's price_note often has nicer "per cent" copy too — surface
+        // both that and the alternative description in our description body.
+        var description = StripHtml(item.GetMeta("es_property_alternative_description") ?? item.Content);
+        var priceNote = item.GetMeta("es_property_price_note")?.Trim();
+        if (!string.IsNullOrWhiteSpace(priceNote)
+            && !description.Contains(priceNote, StringComparison.OrdinalIgnoreCase))
+            description = $"{priceNote}\n\n{description}".Trim();
+
+        // City: prefer the free-text "Thuckalay region" style over the taxonomy
+        // ID (which is meaningless without resolving the taxonomy table).
+        var city = item.GetMeta("es_property_location")?.Trim();
+        if (string.IsNullOrWhiteSpace(city) || IsNumericId(city))
+            city = item.GetMeta("es_property_province")?.Trim() ?? "";
+        city = TitleCase(city);
+
+        var images = ResolveImages(item, attachments);
 
         return new Property
         {
@@ -43,21 +62,24 @@ public static class PropertyMapper
             Title           = item.Title.Trim(),
             Description     = description,
             TotalPrice      = price.Value,
-            AreaInCents     = area.Value,
-            Address         = item.GetMeta("_es_address", "es_address", "address") ?? "",
-            City            = item.GetMeta("_es_city", "es_city", "city") ?? "",
-            District        = item.GetMeta("_es_district", "es_district", "district") ?? "Kanyakumari",
-            State           = item.GetMeta("_es_state", "es_state", "state") ?? "Tamil Nadu",
-            PinCode         = item.GetMeta("_es_zip", "es_zip", "zip", "postal_code") ?? "",
-            PropertyType    = MapPropertyType(item),
+            AreaInCents     = areaInCents.Value,
+            AreaInSqFt      = areaInSqFt,
+            Address         = item.GetMeta("es_property_address")?.Trim() ?? "",
+            City            = city,
+            District        = "Kanyakumari",
+            State           = "Tamil Nadu",
+            PinCode         = item.GetMeta("es_property_postal_code")?.Trim() ?? "",
+            PropertyType    = MapPropertyType(item.GetMeta("es_property_type")),
             Status          = ListingStatus.ForSale,
-            Latitude        = lat,
-            Longitude       = lng,
-            Features        = ParseFeatures(item.GetMeta("_es_features", "es_features", "features")),
+            Latitude        = ParseDouble(item.GetMeta("es_property_latitude")),
+            Longitude       = ParseDouble(item.GetMeta("es_property_longitude")),
+            Bedrooms        = ParseInt(item.GetMeta("es_property_bedrooms")),
+            Bathrooms       = null,
+            Features        = new List<string>(),
             NearbyLandmarks = new List<string>(),
-            Images          = ParseImages(item),
-            LegalStatus     = item.GetMeta("_es_legal_status", "es_legal_status"),
-            RoadAccess      = ParseBool(item.GetMeta("_es_road_access", "es_road_access")) ?? false,
+            Images          = images,
+            LegalStatus     = null,
+            RoadAccess      = true,    // Estatik export doesn't have this — default true
             IsApproved      = true,
             ApprovalStatus  = ApprovalStatus.Approved,
             MarketingPlan   = MarketingPlan.Free,
@@ -67,14 +89,15 @@ public static class PropertyMapper
         };
     }
 
-    /// <summary>Copy the mapped fields into an existing row so re-imports
-    /// update in place rather than duplicating. Preserves Id and FK fields.</summary>
+    /// <summary>Copy mapped fields into an existing row so re-imports update
+    /// in place rather than duplicating. Preserves Id and FK fields.</summary>
     public static void CopyInto(Property src, Property dest)
     {
         dest.Title = src.Title;
         dest.Description = src.Description;
         dest.TotalPrice = src.TotalPrice;
         dest.AreaInCents = src.AreaInCents;
+        dest.AreaInSqFt = src.AreaInSqFt;
         dest.Address = src.Address;
         dest.City = src.City;
         dest.District = src.District;
@@ -84,14 +107,90 @@ public static class PropertyMapper
         dest.Status = src.Status;
         dest.Latitude = src.Latitude;
         dest.Longitude = src.Longitude;
-        dest.Features = src.Features;
+        dest.Bedrooms = src.Bedrooms;
         dest.Images = src.Images;
-        dest.LegalStatus = src.LegalStatus;
-        dest.RoadAccess = src.RoadAccess;
         dest.UpdatedAt = DateTime.UtcNow;
     }
 
-    /* ── Parsers ─────────────────────────────────────────────────────────── */
+    /* ── Area parsing ────────────────────────────────────────────────────── */
+
+    /// <summary>
+    /// Returns (areaInCents, areaInSqFt).
+    /// Strategy:
+    ///   1. Look for "N Cents" in es_property_price_note — most accurate.
+    ///   2. Look for "N Cents" in es_property_keywords.
+    ///   3. Look for "N Cents" anywhere in the description.
+    ///   4. Fall back to es_property_area, interpreted as sq ft (and converted to cents).
+    /// </summary>
+    private static (decimal? cents, decimal? sqFt) ParseArea(WpItem item)
+    {
+        var note = item.GetMeta("es_property_price_note") ?? "";
+        var keywords = item.GetMeta("es_property_keywords") ?? "";
+        var alt = item.GetMeta("es_property_alternative_description") ?? "";
+
+        foreach (var src in new[] { note, keywords, alt, item.Content })
+        {
+            var m = CentsInNote.Match(src);
+            if (m.Success
+                && decimal.TryParse(m.Groups["value"].Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var cents)
+                && cents > 0 && cents < 100_000)
+            {
+                // Also pick up the sq-ft value if Estatik stored one — purely
+                // informational on our side.
+                var sqFt = ParseDecimal(item.GetMeta("es_property_area"));
+                return (cents, sqFt);
+            }
+        }
+
+        // Fallback: es_property_area in sq ft → cents.
+        var raw = ParseDecimal(item.GetMeta("es_property_area"));
+        if (raw is null || raw.Value <= 0) return (null, null);
+        return (Math.Round(raw.Value / 435.6m, 2), raw.Value);
+    }
+
+    /* ── Image resolution ───────────────────────────────────────────────── */
+
+    private static List<string> ResolveImages(WpItem item, AttachmentMap attachments)
+    {
+        // Order matters — featured image (_thumbnail_id) goes first so it
+        // becomes the property's hero image / OG share image.
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var urls = new List<string>();
+        void add(string? url)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return;
+            if (seen.Add(url)) urls.Add(url);
+        }
+
+        // _thumbnail_id is an attachment ID
+        if (int.TryParse(item.GetMeta("_thumbnail_id"), out var thumbId))
+            add(attachments.UrlFor(thumbId));
+
+        // es_property_gallery on this install is a single ID (568 properties,
+        // checked). Other installs sometimes store CSV of IDs — handle both.
+        var gallery = item.GetMeta("es_property_gallery");
+        if (!string.IsNullOrWhiteSpace(gallery))
+        {
+            foreach (var part in gallery.Split(new[] { ',', '|', ';' }, StringSplitOptions.RemoveEmptyEntries))
+                if (int.TryParse(part.Trim(), out var id))
+                    add(attachments.UrlFor(id));
+        }
+        return urls;
+    }
+
+    /* ── Property-type mapping ──────────────────────────────────────────── */
+
+    private static PropertyType MapPropertyType(string? raw)
+    {
+        var v = (raw ?? "").Trim().ToLowerInvariant();
+        if (v.Contains("agricultur") || v.Contains("farm")) return PropertyType.Agricultural;
+        if (v.Contains("commercial")) return PropertyType.Commercial;
+        if (v.Contains("villa") || v.Contains("house") || v.Contains("building")) return PropertyType.LandWithBuilding;
+        if (v.Contains("resident") || v.Contains("plot")) return PropertyType.ResidentialPlot;
+        return PropertyType.OpenLand;
+    }
+
+    /* ── Primitives ─────────────────────────────────────────────────────── */
 
     private static decimal? ParseDecimal(string? raw)
     {
@@ -106,64 +205,63 @@ public static class PropertyMapper
         return double.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : null;
     }
 
-    private static bool? ParseBool(string? raw)
+    private static int? ParseInt(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
-        var v = raw.Trim().ToLowerInvariant();
-        return v is "1" or "yes" or "true" or "on";
+        return int.TryParse(raw, out var v) ? v : null;
     }
 
-    private static List<string> ParseFeatures(string? raw)
+    private static bool IsNumericId(string s) =>
+        !string.IsNullOrEmpty(s) && s.All(char.IsDigit);
+
+    private static string TitleCase(string raw)
     {
-        if (string.IsNullOrWhiteSpace(raw)) return new();
-        // Estatik stores features as comma-separated or serialised PHP — try
-        // CSV first, fall back to single value.
-        return raw.Split(new[] { ',', '|' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                  .ToList();
+        if (string.IsNullOrWhiteSpace(raw)) return "";
+        // "thuckalay" → "Thuckalay", "Thuckalay region" → "Thuckalay Region"
+        return CultureInfo.GetCultureInfo("en-IN").TextInfo
+            .ToTitleCase(raw.Trim().ToLowerInvariant());
     }
 
-    private static List<string> ParseImages(WpItem item)
-    {
-        // Common Estatik patterns: meta key holds CSV of attachment IDs, OR
-        // CSV of direct URLs, OR multiple meta entries like es_image_0,
-        // es_image_1. The analyze pass will reveal which one we have.
-        var raw = item.GetMeta("_es_image_url", "es_image_url", "_es_images", "es_images");
-        if (!string.IsNullOrWhiteSpace(raw))
-        {
-            return raw.Split(new[] { ',', '|', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                      .Where(s => s.StartsWith("http"))
-                      .ToList();
-        }
-        // Numbered keys fallback
-        var imgs = new List<string>();
-        foreach (var (k, v) in item.Meta)
-            if (k.Contains("image", StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(v)
-                && v.StartsWith("http"))
-                imgs.Add(v);
-        return imgs;
-    }
-
-    private static PropertyType MapPropertyType(WpItem item)
-    {
-        // Best-guess from Estatik category labels and/or a meta key.
-        var raw = (item.GetMeta("_es_category", "es_category", "property_type")
-            ?? item.Categories.FirstOrDefault(c => c.Domain.Contains("categor", StringComparison.OrdinalIgnoreCase))?.Label
-            ?? "").ToLowerInvariant();
-
-        if (raw.Contains("agricultur")) return PropertyType.Agricultural;
-        if (raw.Contains("building") || raw.Contains("house") || raw.Contains("villa")) return PropertyType.LandWithBuilding;
-        if (raw.Contains("commercial")) return PropertyType.Commercial;
-        if (raw.Contains("resident"))   return PropertyType.ResidentialPlot;
-        return PropertyType.OpenLand;
-    }
+    private static string Truncate(string s, int max) =>
+        string.IsNullOrEmpty(s) ? "" : s.Length <= max ? s : s[..max] + "…";
 
     private static string StripHtml(string html)
     {
         if (string.IsNullOrEmpty(html)) return "";
-        // Strip shortcodes [foo a="b"] and HTML tags. Crude but adequate.
-        var noShortcodes = System.Text.RegularExpressions.Regex.Replace(html, @"\[[^\]]+\]", "");
-        var noTags = System.Text.RegularExpressions.Regex.Replace(noShortcodes, @"<[^>]+>", "");
-        return System.Net.WebUtility.HtmlDecode(noTags).Trim();
+        var noShortcodes = Regex.Replace(html, @"\[[^\]]+\]", "");
+        var noTags = Regex.Replace(noShortcodes, @"<[^>]+>", " ");
+        var decoded = System.Net.WebUtility.HtmlDecode(noTags);
+        var collapsedWs = Regex.Replace(decoded, @"[ \t]+", " ");
+        return collapsedWs.Trim();
     }
+}
+
+/// <summary>
+/// Pre-scan result — maps attachment IDs to their public WordPress URLs.
+/// Built by reading every `attachment` post type item once before the
+/// property pass, then queried as each property's _thumbnail_id and
+/// es_property_gallery are resolved.
+/// </summary>
+public class AttachmentMap
+{
+    private readonly Dictionary<int, string> _byId = new();
+    public string SiteBaseUrl { get; }
+
+    public AttachmentMap(string siteBaseUrl)
+    {
+        SiteBaseUrl = siteBaseUrl.TrimEnd('/');
+    }
+
+    public void Add(int postId, string relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath)) return;
+        // _wp_attached_file is relative to wp-content/uploads/, e.g.
+        //   "2023/04/image2.jpg" → "https://joseforland.com/wp-content/uploads/2023/04/image2.jpg"
+        _byId[postId] = $"{SiteBaseUrl}/wp-content/uploads/{relativePath.TrimStart('/')}";
+    }
+
+    public string? UrlFor(int postId) =>
+        _byId.TryGetValue(postId, out var url) ? url : null;
+
+    public int Count => _byId.Count;
 }
