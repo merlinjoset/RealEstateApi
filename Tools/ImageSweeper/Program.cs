@@ -21,6 +21,8 @@ var outDir       = ArgValue("--out", "uploads");
 var newBase      = ArgValue("--new-base", "https://api.joseforland.com/media").TrimEnd('/');
 var legacyHost   = ArgValue("--legacy-host", "joseforland.com");
 var dryRun       = args.Contains("--dry-run");
+var rewriteOnly  = args.Contains("--rewrite-only");
+var listOnly     = args.Contains("--list");
 var parallel     = int.TryParse(ArgValue("--parallel", "6"), out var p) ? p : 6;
 
 Directory.CreateDirectory(outDir);
@@ -54,6 +56,27 @@ var properties = await db.Properties
 
 Console.WriteLine($"Properties with images: {properties.Count}");
 
+// Inspection mode — just print a sample of the URLs currently stored so we
+// can confirm what host/path the DB is pointing at.
+if (listOnly)
+{
+    var bySchemeHost = properties
+        .SelectMany(p => p.Images)
+        .GroupBy(u =>
+        {
+            if (Uri.TryCreate(u, UriKind.Absolute, out var ab)) return $"{ab.Scheme}://{ab.Host}";
+            if (u.StartsWith("/")) return "(relative)";
+            return "(other)";
+        })
+        .Select(g => new { Bucket = g.Key, Count = g.Count(), Sample = g.First() })
+        .OrderByDescending(g => g.Count)
+        .ToList();
+    Console.WriteLine("URL buckets:");
+    foreach (var b in bySchemeHost)
+        Console.WriteLine($"  {b.Count,6}  {b.Bucket}    e.g. {b.Sample}");
+    return 0;
+}
+
 // Build the full list of distinct URLs we need to fetch.
 var distinctUrls = properties
     .SelectMany(p => p.Images)
@@ -66,6 +89,47 @@ Console.WriteLine($"Unique URLs pointing at legacy host: {distinctUrls.Count}");
 if (distinctUrls.Count == 0)
 {
     Console.WriteLine("Nothing to do — every image is already on the new host. ✓");
+    return 0;
+}
+
+// In --rewrite-only mode we skip the network entirely and just rewrite the
+// URLs in the DB. Useful when files are already on disk and we just need to
+// change the public URL prefix (e.g. switching from absolute to relative).
+if (rewriteOnly)
+{
+    Console.WriteLine($"Rewrite-only mode — replacing https://{legacyHost}/... → {newBase}/... in Property.Images");
+    var rewriteProps = await db.Properties.Where(p => p.Images.Any()).ToListAsync();
+    int touched = 0;
+    foreach (var prop in rewriteProps)
+    {
+        var changed = false;
+        var newImages = new List<string>();
+        foreach (var url in prop.Images)
+        {
+            if (Uri.TryCreate(url, UriKind.Absolute, out var uri)
+                && uri.Host.Equals(legacyHost, StringComparison.OrdinalIgnoreCase))
+            {
+                // Strip the legacy origin AND the /media or /wp-content/uploads/ prefix
+                // and reattach against the new base.
+                var path = uri.AbsolutePath;
+                var mediaIdx = path.IndexOf("/media/", StringComparison.OrdinalIgnoreCase);
+                var wpIdx    = path.IndexOf("wp-content/uploads/", StringComparison.OrdinalIgnoreCase);
+                string rel;
+                if (mediaIdx >= 0)      rel = path[(mediaIdx + "/media/".Length)..];
+                else if (wpIdx >= 0)    rel = path[(wpIdx + "wp-content/uploads/".Length)..];
+                else                    rel = path.TrimStart('/');
+                newImages.Add($"{newBase}/{rel.TrimStart('/')}");
+                changed = true;
+            }
+            else
+            {
+                newImages.Add(url);
+            }
+        }
+        if (changed) { prop.Images = newImages; touched++; }
+    }
+    await db.SaveChangesAsync();
+    Console.WriteLine($"✓ Rewrote URLs on {touched} properties.");
     return 0;
 }
 
