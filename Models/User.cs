@@ -20,6 +20,13 @@ public class User : ISoftDeletable
     public string PasswordHash { get; set; } = string.Empty;
     public string? Phone { get; set; }
     public string? City { get; set; }
+
+    /// <summary>
+    /// Original WordPress user ID. Used to idempotently match users on
+    /// re-imports and to keep external references stable. Null for users
+    /// created in this system after migration.
+    /// </summary>
+    public int? WpUserId { get; set; }
     public UserRole Role { get; set; } = UserRole.Employee;
     public string? Avatar { get; set; }
     public bool IsActive { get; set; } = true;

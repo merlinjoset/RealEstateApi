@@ -6,6 +6,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <!-- One-off CLI tools live under Tools/ and have their own csproj. Exclude
+       them from the API project compilation so their Program.cs doesn't
+       conflict with the API's. -->
+  <ItemGroup>
+    <Compile Remove="Tools/**" />
+    <Content Remove="Tools/**" />
+    <None Remove="Tools/**" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.11" />

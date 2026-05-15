@@ -57,6 +57,15 @@ public class Property : ISoftDeletable
     public User? SubmittedByUser { get; set; }
 
     /// <summary>
+    /// Original WordPress post ID from the Estatik plugin (joseforland.com
+    /// pre-migration). Lets the importer match-and-update existing rows on
+    /// rerun, and lets us serve 301 redirects from /property/{wpPostId} →
+    /// /properties/{Id} for SEO continuity after DNS cutover.
+    /// Null for any property created directly in this system.
+    /// </summary>
+    public int? WpPostId { get; set; }
+
+    /// <summary>
     /// Employee/Agent assigned by an Admin to verify the property — site
     /// visit, document check, photo capture. Null until an admin assigns
     /// someone from the Pending Approvals queue.
