@@ -70,3 +70,6 @@ desktop.ini
 *.bak
 *.tmp
 *.swp
+
+# Image sweep — locally downloaded property media. Goes to Render disk, not git.
+/uploads/

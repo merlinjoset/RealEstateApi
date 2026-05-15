@@ -220,6 +220,33 @@ if (!inContainer && !app.Environment.IsDevelopment())
 }
 
 app.UseCors();
+
+// ── Media (re-hosted property images) ────────────────────────────────────────
+// Files swept from the legacy WordPress install land here. Path is
+// configurable via Storage:UploadsPath — set to a Render-disk mount point
+// (e.g. /var/data/uploads) in production so files survive deploys. Defaults
+// to ./uploads under the API working dir for local development.
+{
+    var rawPath = app.Configuration["Storage:UploadsPath"] ?? "uploads";
+    var uploadsPath = Path.IsPathRooted(rawPath)
+        ? rawPath
+        : Path.Combine(app.Environment.ContentRootPath, rawPath);
+    Directory.CreateDirectory(uploadsPath);
+
+    app.UseStaticFiles(new Microsoft.AspNetCore.Builder.StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
+        RequestPath  = "/media",
+        OnPrepareResponse = ctx =>
+        {
+            // Long-lived cache — every file is content-addressed by its
+            // path under wp-content/uploads/YYYY/MM/, which never changes.
+            ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=31536000, immutable";
+        },
+    });
+    bootLog.LogInformation("🖼 Media uploads served from {Path} → /media/*", uploadsPath);
+}
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
