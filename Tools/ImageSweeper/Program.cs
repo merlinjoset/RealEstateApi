@@ -16,6 +16,11 @@ using RealEstateApi.Data;
 //                           Default: "joseforland.com"
 //   --dry-run               Don't write to the DB. Useful for a first pass.
 //   --parallel <n>          Concurrent downloads. Default: 6.
+//
+//   --pull-relative <base>  Re-download every relative Property.Images URL (eg /media/2025/01/x.jpg)
+//                           from <base>/wp-content/uploads/<rest> into <outDir>/<rest>. Run this on
+//                           Render after deploying — it populates the persistent disk so the API's
+//                           UseStaticFiles middleware can serve the files. Does NOT touch the DB.
 
 var outDir       = ArgValue("--out", "uploads");
 var newBase      = ArgValue("--new-base", "https://api.joseforland.com/media").TrimEnd('/');
@@ -23,6 +28,7 @@ var legacyHost   = ArgValue("--legacy-host", "joseforland.com");
 var dryRun       = args.Contains("--dry-run");
 var rewriteOnly  = args.Contains("--rewrite-only");
 var listOnly     = args.Contains("--list");
+var pullRelative = ArgValue("--pull-relative", "").TrimEnd('/');
 var parallel     = int.TryParse(ArgValue("--parallel", "6"), out var p) ? p : 6;
 
 Directory.CreateDirectory(outDir);
@@ -75,6 +81,73 @@ if (listOnly)
     foreach (var b in bySchemeHost)
         Console.WriteLine($"  {b.Count,6}  {b.Bucket}    e.g. {b.Sample}");
     return 0;
+}
+
+// ── --pull-relative mode ────────────────────────────────────────────────────
+// Re-download every relative /media/* URL from <pullRelative>/wp-content/uploads/*
+// to <outDir>. Used after deploying to Render — populates the persistent disk
+// so UseStaticFiles can serve the files. Does NOT modify the DB.
+if (!string.IsNullOrEmpty(pullRelative))
+{
+    Console.WriteLine($"Pull-relative mode — source: {pullRelative}/wp-content/uploads/...");
+    Console.WriteLine($"   Saving to: {Path.GetFullPath(outDir)}");
+
+    // Pull every distinct relative URL beginning with /media/ — that's the
+    // canonical shape after the last rewrite-only sweep.
+    var relPaths = properties
+        .SelectMany(p => p.Images)
+        .Where(u => u.StartsWith("/media/", StringComparison.OrdinalIgnoreCase))
+        .Select(u => u["/media/".Length..])       // "2025/01/foo.jpg"
+        .Distinct()
+        .ToList();
+
+    Console.WriteLine($"Unique /media paths to fetch: {relPaths.Count}");
+    if (relPaths.Count == 0)
+    {
+        Console.WriteLine("Nothing to do — no relative /media URLs in DB.");
+        return 0;
+    }
+
+    var pullHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+    pullHttp.DefaultRequestHeaders.UserAgent.ParseAdd("JoseForLandImageSweeper/1.0");
+
+    int pOk = 0, pSkip = 0, pFail = 0;
+    var pSem = new SemaphoreSlim(parallel);
+    var pTasks = relPaths.Select(async rel =>
+    {
+        await pSem.WaitAsync();
+        try
+        {
+            var target = Path.Combine(outDir, rel.Replace('/', Path.DirectorySeparatorChar));
+            if (File.Exists(target)) { Interlocked.Increment(ref pSkip); return; }
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            var sourceUrl = $"{pullRelative}/wp-content/uploads/{rel}";
+            try
+            {
+                using var resp = await pullHttp.GetAsync(sourceUrl);
+                if (!resp.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"  ✗ {resp.StatusCode} — {sourceUrl}");
+                    Interlocked.Increment(ref pFail);
+                    return;
+                }
+                await using var fs = File.OpenWrite(target);
+                await resp.Content.CopyToAsync(fs);
+                var n = Interlocked.Increment(ref pOk);
+                if (n % 25 == 0) Console.WriteLine($"  ✓ {n} downloaded so far");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  ✗ {ex.GetType().Name}: {ex.Message} — {sourceUrl}");
+                Interlocked.Increment(ref pFail);
+            }
+        }
+        finally { pSem.Release(); }
+    });
+    await Task.WhenAll(pTasks);
+    Console.WriteLine();
+    Console.WriteLine($"Pull summary: ok={pOk}, skipped(existing)={pSkip}, failed={pFail}");
+    return pFail == 0 ? 0 : 2;
 }
 
 // Build the full list of distinct URLs we need to fetch.
