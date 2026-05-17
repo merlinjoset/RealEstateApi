@@ -21,14 +21,23 @@ public class UploadsController(
 {
     // Keep these conservative — images only, small enough that a phone
     // photo lands without a long upload but a malicious 50 MB blob can't.
-    private const long MaxBytes = 5 * 1024 * 1024;       // 5 MB
-    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    private const long MaxImageBytes = 5 * 1024 * 1024;        // 5 MB
+    private const long MaxVideoBytes = 100 * 1024 * 1024;      // 100 MB
+    private static readonly HashSet<string> AllowedImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".jpg", ".jpeg", ".png", ".webp", ".gif",
     };
-    private static readonly HashSet<string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> AllowedImageContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "image/jpeg", "image/png", "image/webp", "image/gif",
+    };
+    private static readonly HashSet<string> AllowedVideoExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mp4", ".mov", ".webm", ".m4v",
+    };
+    private static readonly HashSet<string> AllowedVideoContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "video/mp4", "video/quicktime", "video/webm", "video/x-m4v",
     };
 
     /// <summary>
@@ -38,20 +47,47 @@ public class UploadsController(
     /// </summary>
     [HttpPost("property-image")]
     [AllowAnonymous]
-    [RequestSizeLimit(MaxBytes + 1024)]   // small headroom for multipart overhead
-    public async Task<IActionResult> UploadPropertyImage([FromForm] IFormFile? file)
+    [RequestSizeLimit(MaxImageBytes + 1024)]   // small headroom for multipart overhead
+    public Task<IActionResult> UploadPropertyImage([FromForm] IFormFile? file) =>
+        SaveAsync(file, MaxImageBytes, AllowedImageExtensions, AllowedImageContentTypes, "image");
+
+    /// <summary>
+    /// Upload a single property video. Same disk layout as images
+    /// (Storage:UploadsPath/yyyy/MM/{guid}-{name}.ext) and same /media/...
+    /// public URL — the only difference is the size cap and the
+    /// allow-list of content types. 100 MB is the practical cap on a
+    /// Render Starter dyno; larger files should be compressed before
+    /// upload (sellers usually send phone footage which is well under).
+    /// </summary>
+    [HttpPost("property-video")]
+    [AllowAnonymous]
+    [RequestSizeLimit(MaxVideoBytes + 4096)]
+    public Task<IActionResult> UploadPropertyVideo([FromForm] IFormFile? file) =>
+        SaveAsync(file, MaxVideoBytes, AllowedVideoExtensions, AllowedVideoContentTypes, "video");
+
+    /// <summary>
+    /// Shared multipart-receive + disk-write path. Returns 400 with a
+    /// human-readable error when validation fails so the React client
+    /// can surface the message in a toast.
+    /// </summary>
+    private async Task<IActionResult> SaveAsync(
+        IFormFile? file,
+        long maxBytes,
+        HashSet<string> allowedExt,
+        HashSet<string> allowedCt,
+        string kind)
     {
         if (file is null || file.Length == 0)
             return BadRequest(new { error = "No file received." });
 
-        if (file.Length > MaxBytes)
-            return BadRequest(new { error = $"File too large. Max size is {MaxBytes / 1024 / 1024} MB." });
+        if (file.Length > maxBytes)
+            return BadRequest(new { error = $"File too large. Max size is {maxBytes / 1024 / 1024} MB." });
 
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-        if (!AllowedExtensions.Contains(ext))
-            return BadRequest(new { error = $"Unsupported file type '{ext}'. Allowed: {string.Join(", ", AllowedExtensions)}." });
+        if (!allowedExt.Contains(ext))
+            return BadRequest(new { error = $"Unsupported file type '{ext}'. Allowed: {string.Join(", ", allowedExt)}." });
 
-        if (!AllowedContentTypes.Contains(file.ContentType ?? ""))
+        if (!allowedCt.Contains(file.ContentType ?? ""))
             return BadRequest(new { error = $"Unsupported content type '{file.ContentType}'." });
 
         // Land the file under uploads/YYYY/MM/ to mirror the WordPress
@@ -91,7 +127,7 @@ public class UploadsController(
         var publicUrl = string.IsNullOrEmpty(baseUrl)
             ? $"/media/{relDir}/{unique}"
             : $"{baseUrl}/media/{relDir}/{unique}";
-        log.LogInformation("Uploaded property image: {Url} ({Bytes} bytes)", publicUrl, file.Length);
+        log.LogInformation("Uploaded property {Kind}: {Url} ({Bytes} bytes)", kind, publicUrl, file.Length);
 
         return Ok(new { url = publicUrl });
     }
