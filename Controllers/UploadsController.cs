@@ -83,7 +83,14 @@ public class UploadsController(
         await using (var fs = System.IO.File.Create(diskPath))
             await file.CopyToAsync(fs);
 
-        var publicUrl = $"/media/{relDir}/{unique}";
+        // Return an absolute URL so the frontend can render the image
+        // regardless of which origin it's served from (avoids the demo →
+        // api proxy hop entirely). Base is configurable via env so dev
+        // uses the local API and prod uses api.joseforland.com.
+        var baseUrl = (config["Storage:PublicBaseUrl"] ?? "").TrimEnd('/');
+        var publicUrl = string.IsNullOrEmpty(baseUrl)
+            ? $"/media/{relDir}/{unique}"
+            : $"{baseUrl}/media/{relDir}/{unique}";
         log.LogInformation("Uploaded property image: {Url} ({Bytes} bytes)", publicUrl, file.Length);
 
         return Ok(new { url = publicUrl });

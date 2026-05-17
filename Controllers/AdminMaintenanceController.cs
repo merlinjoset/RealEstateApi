@@ -113,4 +113,62 @@ public class AdminMaintenanceController(
             failures = failures.Take(20).ToList(),  // cap so the response stays small
         });
     }
+
+    /// <summary>
+    /// Rewrite every relative `/media/...` URL in Property.Images to an
+    /// absolute URL with the given base. Idempotent — already-absolute
+    /// URLs are left untouched. Use this after switching the deployment
+    /// to absolute-URL mode so old records stop relying on the demo →
+    /// api proxy.
+    /// </summary>
+    /// <param name="baseUrl">Absolute origin to prepend, e.g. https://api.joseforland.com</param>
+    [HttpPost("rewrite-images-to-absolute")]
+    public async Task<IActionResult> RewriteImagesToAbsolute([FromQuery] string baseUrl = "https://api.joseforland.com")
+    {
+        baseUrl = baseUrl.TrimEnd('/');
+        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out _))
+            return BadRequest(new { error = $"baseUrl '{baseUrl}' is not an absolute URL." });
+
+        var properties = await db.Properties
+            .Where(p => p.Images.Any())
+            .ToListAsync();
+
+        int touched = 0;
+        int urlsRewritten = 0;
+        foreach (var prop in properties)
+        {
+            var changed = false;
+            var next = new List<string>(prop.Images.Count);
+            foreach (var url in prop.Images)
+            {
+                if (url.StartsWith("/media/", StringComparison.OrdinalIgnoreCase))
+                {
+                    next.Add($"{baseUrl}{url}");
+                    urlsRewritten++;
+                    changed = true;
+                }
+                else
+                {
+                    next.Add(url);
+                }
+            }
+            if (changed)
+            {
+                prop.Images = next;
+                touched++;
+            }
+        }
+        await db.SaveChangesAsync();
+
+        log.LogInformation("Rewrote {Urls} image URLs across {Props} properties (base: {Base})",
+            urlsRewritten, touched, baseUrl);
+
+        return Ok(new
+        {
+            propertiesTouched = touched,
+            urlsRewritten,
+            totalPropertiesWithImages = properties.Count,
+            baseUrl,
+        });
+    }
 }
