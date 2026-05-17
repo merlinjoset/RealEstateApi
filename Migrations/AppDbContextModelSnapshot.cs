@@ -253,10 +253,6 @@ namespace RealEstateApi.Migrations
                     b.Property<string>("VerificationNotes")
                         .HasColumnType("text");
 
-                    b.Property<List<string>>("Videos")
-                        .IsRequired()
-                        .HasColumnType("text[]");
-
                     b.Property<int?>("WpPostId")
                         .HasColumnType("integer");
 

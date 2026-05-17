@@ -38,12 +38,6 @@ public class Property : ISoftDeletable
     public PropertyType PropertyType { get; set; } = PropertyType.OpenLand;
     public ListingStatus Status { get; set; } = ListingStatus.ForSale;
     public List<string> Images { get; set; } = new();
-    /// <summary>
-    /// Public URLs (or relative /media paths) of property videos. Same
-    /// storage convention as Images — files land in Storage:UploadsPath
-    /// under YYYY/MM/ and are served by the /media/* static-files route.
-    /// </summary>
-    public List<string> Videos { get; set; } = new();
     public List<string> Features { get; set; } = new();
     public List<string> NearbyLandmarks { get; set; } = new();
     public string? LegalStatus { get; set; }

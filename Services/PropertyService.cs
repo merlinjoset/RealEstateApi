@@ -38,7 +38,7 @@ public class PropertyService(
         p.Address, p.City, p.District, p.State, p.PinCode,
         p.AreaInCents, p.AreaInSqFt, p.Bedrooms, p.Bathrooms,
         p.PropertyType.ToString(), p.Status.ToString(),
-        p.Images, p.Videos, p.Features, p.NearbyLandmarks,
+        p.Images, p.Features, p.NearbyLandmarks,
         p.LegalStatus, p.RoadAccess, p.IsFeatured, p.IsVerified,
         p.ApprovalStatus.ToString(),
         p.MarketingPlan.ToString(),
@@ -164,7 +164,6 @@ public class PropertyService(
             PropertyType = pt,
             Status = ls,
             Images = req.Images ?? [],
-            Videos = req.Videos ?? [],
             Features = req.Features ?? [],
             NearbyLandmarks = req.NearbyLandmarks ?? [],
             LegalStatus = req.LegalStatus,
@@ -202,7 +201,6 @@ public class PropertyService(
         if (req.Bedrooms.HasValue) prop.Bedrooms = req.Bedrooms;
         if (req.Bathrooms.HasValue) prop.Bathrooms = req.Bathrooms;
         if (req.Images is not null) prop.Images = req.Images;
-        if (req.Videos is not null) prop.Videos = req.Videos;
         if (req.Features is not null) prop.Features = req.Features;
         if (req.NearbyLandmarks is not null) prop.NearbyLandmarks = req.NearbyLandmarks;
         if (req.LegalStatus is not null) prop.LegalStatus = req.LegalStatus;
