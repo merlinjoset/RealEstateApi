@@ -22,6 +22,14 @@ public enum MarketingPlan { Free, VideoPromotion }
 public class Property : ISoftDeletable
 {
     public int Id { get; set; }
+    /// <summary>
+    /// Human-facing serial / reference number admins assign to a listing
+    /// (e.g. "JFL-2026-001"). Free-form text, not validated for uniqueness
+    /// at the DB level — the admin owns whatever convention they pick.
+    /// Null for the 422 historically imported records and any submission
+    /// where the field was left blank.
+    /// </summary>
+    public string? SerialNo { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public decimal TotalPrice { get; set; }

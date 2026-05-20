@@ -34,7 +34,7 @@ public class PropertyService(
     ISmsTemplateService templates) : IPropertyService
 {
     private static PropertyDto ToDto(Property p) => new(
-        p.Id, p.Title, p.Description, p.TotalPrice, p.PricePerCent,
+        p.Id, p.SerialNo, p.Title, p.Description, p.TotalPrice, p.PricePerCent,
         p.Address, p.City, p.District, p.State, p.PinCode,
         p.AreaInCents, p.AreaInSqFt, p.Bedrooms, p.Bathrooms,
         p.PropertyType.ToString(), p.Status.ToString(),
@@ -148,6 +148,7 @@ public class PropertyService(
 
         var prop = new Property
         {
+            SerialNo = string.IsNullOrWhiteSpace(req.SerialNo) ? null : req.SerialNo.Trim(),
             Title = req.Title,
             Description = req.Description,
             TotalPrice = req.TotalPrice,
@@ -190,6 +191,9 @@ public class PropertyService(
         var prop = await db.Properties.FindAsync(id);
         if (prop is null) return null;
 
+        // Empty string clears the serial; null leaves it untouched.
+        if (req.SerialNo is not null)
+            prop.SerialNo = string.IsNullOrWhiteSpace(req.SerialNo) ? null : req.SerialNo.Trim();
         if (req.Title is not null) prop.Title = req.Title;
         if (req.Description is not null) prop.Description = req.Description;
         if (req.TotalPrice.HasValue) prop.TotalPrice = req.TotalPrice.Value;

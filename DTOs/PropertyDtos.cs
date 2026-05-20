@@ -23,6 +23,7 @@ public class PropertyQueryParams
 
 public record PropertyDto(
     int Id,
+    string? SerialNo,
     string Title,
     string Description,
     decimal TotalPrice,
@@ -66,6 +67,8 @@ public record AssignPropertyRequest([Required] int AssignedToUserId);
 public record SubmitVerificationRequest([Required] string Notes);
 
 public record CreatePropertyRequest(
+    /// <summary>Optional human-facing serial / reference (e.g. "JFL-2026-001").</summary>
+    string? SerialNo,
     [Required, MaxLength(200)] string Title,
     [Required] string Description,
     [Required, Range(1, double.MaxValue)] decimal TotalPrice,
@@ -98,6 +101,7 @@ public record CreatePropertyRequest(
 );
 
 public record UpdatePropertyRequest(
+    string? SerialNo,
     string? Title,
     string? Description,
     decimal? TotalPrice,
