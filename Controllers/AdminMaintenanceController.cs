@@ -20,6 +20,7 @@ public class AdminMaintenanceController(
     IConfiguration config,
     IWebHostEnvironment env,
     IHttpClientFactory httpFactory,
+    Services.IEmailService email,
     ILogger<AdminMaintenanceController> log) : ControllerBase
 {
     /// <summary>
@@ -170,5 +171,57 @@ public class AdminMaintenanceController(
             totalPropertiesWithImages = properties.Count,
             baseUrl,
         });
+    }
+
+    /// <summary>
+    /// Send a test email to the given address so an admin can confirm SMTP
+    /// is wired correctly without going through a full property-submission
+    /// flow. Reports back which IEmailService implementation handled it
+    /// (Smtp vs Console) so the caller knows whether config was picked up.
+    /// </summary>
+    [HttpPost("test-email")]
+    public async Task<IActionResult> TestEmail([FromQuery] string? to = null)
+    {
+        var target = to?.Trim();
+        if (string.IsNullOrWhiteSpace(target))
+            return BadRequest(new { error = "Pass ?to=<email> as a query param." });
+
+        var impl = email.GetType().Name;   // "SmtpEmailService" or "ConsoleEmailService"
+        var subject = "Jose For Land — email pipeline test";
+        var body = $@"
+            <p>Hi,</p>
+            <p>This is a test email from the Jose For Land API. If you're
+            reading this in your inbox, the SMTP wiring is healthy.</p>
+            <p><strong>Sent via:</strong> {impl}<br/>
+            <strong>From host:</strong> {config["Email:Host"] ?? "(not configured — console-only)"}<br/>
+            <strong>Time:</strong> {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC</p>
+            <p>— Jose For Land</p>";
+
+        try
+        {
+            await email.SendAsync(target, subject, body);
+            log.LogInformation("Test email dispatched to {To} via {Impl}", target, impl);
+            return Ok(new
+            {
+                ok = true,
+                to = target,
+                sentVia = impl,
+                host = config["Email:Host"],
+                note = impl == "ConsoleEmailService"
+                    ? "Console-only — set Email:Host etc. on the API service to send real mail."
+                    : "Real SMTP send. Check the inbox (and the spam folder)."
+            });
+        }
+        catch (Exception ex)
+        {
+            log.LogError(ex, "Test email FAILED to {To} via {Impl}", target, impl);
+            return StatusCode(500, new
+            {
+                ok = false,
+                to = target,
+                sentVia = impl,
+                error = $"{ex.GetType().Name}: {ex.Message}",
+            });
+        }
     }
 }

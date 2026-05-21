@@ -74,7 +74,12 @@ else
 {
     builder.Services.AddScoped<ISmsService, ConsoleSmsService>();
 }
-builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
+// SMTP if Email:Host is configured; falls back to console-logging otherwise
+// so local dev keeps working without credentials.
+if (!string.IsNullOrWhiteSpace(builder.Configuration["Email:Host"]))
+    builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+else
+    builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
 
 // WhatsApp + smart-routing notification (tries WhatsApp first, SMS fallback).
 // Meta Cloud API takes over when WhatsApp:Meta:AccessToken is configured; the
