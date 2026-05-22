@@ -62,6 +62,8 @@ public record PropertyDto(
     DateTime UpdatedAt
 );
 
+public record CityCountDto(string City, int Count);
+
 public record AssignPropertyRequest([Required] int AssignedToUserId);
 
 public record SubmitVerificationRequest([Required] string Notes);

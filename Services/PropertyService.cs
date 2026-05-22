@@ -11,6 +11,10 @@ public interface IPropertyService
     Task<PropertyDto?> GetByIdAsync(int id);
     Task<List<PropertyDto>> GetFeaturedAsync();
     Task<List<PropertyDto>> GetRelatedAsync(int id);
+    /// <summary>Approved-property counts grouped by city. When
+    /// <paramref name="anonymousOnly"/> is true, only Video-Promotion
+    /// listings are counted so the number matches the gated public list.</summary>
+    Task<List<CityCountDto>> GetCityCountsAsync(bool anonymousOnly);
     Task<PropertyDto> CreateAsync(CreatePropertyRequest req, int? submittedByUserId, bool autoApprove);
     Task<PropertyDto?> UpdateAsync(int id, UpdatePropertyRequest req);
     Task<bool> DeleteAsync(int id);
@@ -74,7 +78,13 @@ public class PropertyService(
                                      p.Address.ToLower().Contains(s));
         }
         if (!string.IsNullOrWhiteSpace(q.City))
-            query = query.Where(p => p.City.ToLower() == q.City.ToLower());
+        {
+            // Substring match — WordPress-imported rows store "Nagercoil Region"
+            // rather than the bare "Nagercoil" that lives in the homepage city
+            // chips and filter dropdowns, so an exact equals lookup returned 0.
+            var cityLower = q.City.ToLower();
+            query = query.Where(p => p.City.ToLower().Contains(cityLower));
+        }
         if (!string.IsNullOrWhiteSpace(q.PropertyType) &&
             Enum.TryParse<PropertyType>(q.PropertyType, true, out var pt))
             query = query.Where(p => p.PropertyType == pt);
@@ -126,6 +136,20 @@ public class PropertyService(
             .Take(8)
             .ToListAsync())
         .Select(ToDto).ToList();
+
+    public async Task<List<CityCountDto>> GetCityCountsAsync(bool anonymousOnly)
+    {
+        var q = db.Properties
+            .Where(p => p.ApprovalStatus == ApprovalStatus.Approved
+                     && !string.IsNullOrEmpty(p.City));
+        if (anonymousOnly)
+            q = q.Where(p => p.MarketingPlan == MarketingPlan.VideoPromotion);
+        return await q
+            .GroupBy(p => p.City)
+            .Select(g => new CityCountDto(g.Key, g.Count()))
+            .OrderByDescending(c => c.Count)
+            .ToListAsync();
+    }
 
     public async Task<List<PropertyDto>> GetRelatedAsync(int id)
     {

@@ -59,6 +59,21 @@ public class PropertiesController(
         return Ok(result);
     }
 
+    /// <summary>
+    /// Returns approved-property counts grouped by city — used by the
+    /// homepage "Browse by Location" tiles to show real numbers instead
+    /// of hardcoded mocks. Anonymous callers get the same gating that
+    /// applies to the list endpoint (Video Promotion only) so the count
+    /// matches what they'd actually see if they clicked through.
+    /// </summary>
+    [HttpGet("city-counts")]
+    public async Task<IActionResult> GetCityCounts()
+    {
+        var anonymous = CurrentUserId is null;
+        var result = await propertyService.GetCityCountsAsync(anonymous);
+        return Ok(result);
+    }
+
     [HttpGet("pending")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetPending()
