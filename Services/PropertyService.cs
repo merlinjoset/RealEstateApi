@@ -73,9 +73,13 @@ public class PropertyService(
         if (!string.IsNullOrWhiteSpace(q.Search))
         {
             var s = q.Search.ToLower();
+            // Serial / ref code is admin-assigned (e.g. "JFL-2026-001") so an
+            // exact / substring match on it should win even if the same string
+            // doesn't appear in the title or address.
             query = query.Where(p => p.Title.ToLower().Contains(s) ||
                                      p.City.ToLower().Contains(s) ||
-                                     p.Address.ToLower().Contains(s));
+                                     p.Address.ToLower().Contains(s) ||
+                                     (p.SerialNo != null && p.SerialNo.ToLower().Contains(s)));
         }
         if (!string.IsNullOrWhiteSpace(q.City))
         {
