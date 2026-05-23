@@ -144,11 +144,18 @@ public class PropertyService(
                      && !string.IsNullOrEmpty(p.City));
         if (anonymousOnly)
             q = q.Where(p => p.MarketingPlan == MarketingPlan.VideoPromotion);
-        return await q
+
+        // Project to an anonymous type so the SQL stays simple — EF Core 8's
+        // GroupBy + record-constructor projection sometimes fails translation
+        // (returns 500 at request time). Materialise into the DTO after the
+        // query lands.
+        var rows = await q
             .GroupBy(p => p.City)
-            .Select(g => new CityCountDto(g.Key, g.Count()))
-            .OrderByDescending(c => c.Count)
+            .Select(g => new { City = g.Key, Count = g.Count() })
+            .OrderByDescending(r => r.Count)
             .ToListAsync();
+
+        return rows.Select(r => new CityCountDto(r.City, r.Count)).ToList();
     }
 
     public async Task<List<PropertyDto>> GetRelatedAsync(int id)
