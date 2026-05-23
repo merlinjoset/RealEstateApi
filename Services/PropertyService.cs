@@ -37,6 +37,19 @@ public class PropertyService(
     IEmailService email,
     ISmsTemplateService templates) : IPropertyService
 {
+    /// <summary>Great-circle distance between two lat/lng points, in metres.
+    /// Used by the geolocation filter to refine the SQL bounding-box result.</summary>
+    private static double Haversine(double lat1, double lng1, double lat2, double lng2)
+    {
+        const double R = 6_371_000;  // Earth's mean radius in metres
+        var dLat = (lat2 - lat1) * Math.PI / 180.0;
+        var dLng = (lng2 - lng1) * Math.PI / 180.0;
+        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2)
+              + Math.Cos(lat1 * Math.PI / 180.0) * Math.Cos(lat2 * Math.PI / 180.0)
+              * Math.Sin(dLng / 2) * Math.Sin(dLng / 2);
+        return 2 * R * Math.Asin(Math.Min(1, Math.Sqrt(a)));
+    }
+
     private static PropertyDto ToDto(Property p) => new(
         p.Id, p.SerialNo, p.Title, p.Description, p.TotalPrice, p.PricePerCent,
         p.Address, p.City, p.District, p.State, p.PinCode,
@@ -104,6 +117,25 @@ public class PropertyService(
             Enum.TryParse<MarketingPlan>(q.MarketingPlan, true, out var mpFilter))
             query = query.Where(p => p.MarketingPlan == mpFilter);
 
+        // Geolocation filter — when (NearLat, NearLng, RadiusM) are all set,
+        // narrow to properties whose stored coordinates lie within RadiusM
+        // metres. SQL gets a cheap bounding-box pre-filter; the precise
+        // haversine refinement happens in memory after materialisation.
+        var geoFilter = q.NearLat.HasValue && q.NearLng.HasValue
+                     && q.RadiusM.HasValue && q.RadiusM.Value > 0;
+        if (geoFilter)
+        {
+            const double latDegM = 111_000.0;  // ≈ metres per degree of latitude
+            var radDegLat = q.RadiusM!.Value / latDegM;
+            var radDegLng = radDegLat / Math.Max(0.001, Math.Cos(q.NearLat!.Value * Math.PI / 180.0));
+            var minLat = q.NearLat!.Value - radDegLat;
+            var maxLat = q.NearLat!.Value + radDegLat;
+            var minLng = q.NearLng!.Value - radDegLng;
+            var maxLng = q.NearLng!.Value + radDegLng;
+            query = query.Where(p => p.Latitude  != null && p.Latitude  >= minLat && p.Latitude  <= maxLat
+                                  && p.Longitude != null && p.Longitude >= minLng && p.Longitude <= maxLng);
+        }
+
         query = q.SortBy switch
         {
             "price_asc" => query.OrderBy(p => p.TotalPrice),
@@ -114,11 +146,27 @@ public class PropertyService(
             _ => query.OrderByDescending(p => p.CreatedAt),
         };
 
-        var total = await query.CountAsync();
-        var data = await query
-            .Skip((q.Page - 1) * q.PageSize)
-            .Take(q.PageSize)
-            .ToListAsync();
+        int total;
+        List<Property> data;
+        if (geoFilter)
+        {
+            // Bounding box has already trimmed the candidate set to a small
+            // region; haversine refines so corners of the box don't sneak in.
+            var candidates = await query.ToListAsync();
+            var refined = candidates.Where(p =>
+                Haversine(p.Latitude!.Value, p.Longitude!.Value, q.NearLat!.Value, q.NearLng!.Value)
+                <= q.RadiusM!.Value).ToList();
+            total = refined.Count;
+            data = refined.Skip((q.Page - 1) * q.PageSize).Take(q.PageSize).ToList();
+        }
+        else
+        {
+            total = await query.CountAsync();
+            data = await query
+                .Skip((q.Page - 1) * q.PageSize)
+                .Take(q.PageSize)
+                .ToListAsync();
+        }
 
         return new PaginatedResponse<PropertyDto>(
             data.Select(ToDto).ToList(),

@@ -19,6 +19,12 @@ public class PropertyQueryParams
     public string? SortBy { get; set; } = "newest";
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 12;
+    // Geolocation filter: when all three are set, only properties whose
+    // latitude / longitude lie within RadiusM metres of (NearLat, NearLng)
+    // are returned. Rows without coordinates are excluded.
+    public double? NearLat { get; set; }
+    public double? NearLng { get; set; }
+    public double? RadiusM { get; set; }
 }
 
 public record PropertyDto(
