@@ -38,9 +38,13 @@ public class InquiriesController(
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateInquiryRequest req)
     {
-        if (!Enum.TryParse<PreferredContact>(req.PreferredContact, true, out var pc))
+        // Strip underscores before parsing so snake_case strings sent by
+        // the React client ("site_visit", "document_request", "in_progress")
+        // map cleanly to the PascalCase enum names. Enum.TryParse with
+        // ignoreCase doesn't normalise the separator on its own.
+        if (!TryParseEnumTolerant<PreferredContact>(req.PreferredContact, out var pc))
             pc = PreferredContact.Phone;
-        if (!Enum.TryParse<InquiryType>(req.Type ?? "General", true, out var type))
+        if (!TryParseEnumTolerant<InquiryType>(req.Type ?? "General", out var type))
             type = InquiryType.General;
 
         var inquiry = new Inquiry
@@ -128,11 +132,9 @@ public class InquiriesController(
         if (unreadOnly == true) query = query.Where(i => !i.IsRead);
         if (assignedTo is int aId) query = query.Where(i => i.AssignedToUserId == aId);
         if (propertyId is int pId) query = query.Where(i => i.PropertyId == pId);
-        if (!string.IsNullOrWhiteSpace(type) && type != "all"
-            && Enum.TryParse<InquiryType>(type, true, out var ty))
+        if (type != "all" && TryParseEnumTolerant<InquiryType>(type, out var ty))
             query = query.Where(i => i.Type == ty);
-        if (!string.IsNullOrWhiteSpace(status) && status != "all"
-            && Enum.TryParse<InquiryStatus>(status, true, out var st))
+        if (status != "all" && TryParseEnumTolerant<InquiryStatus>(status, out var st))
             query = query.Where(i => i.Status == st);
 
         var total = await query.CountAsync();
@@ -252,7 +254,7 @@ public class InquiriesController(
     [HttpPatch("{id:int}/update")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateInquiryRequest req)
     {
-        if (!Enum.TryParse<InquiryStatus>(req.Status, true, out var newStatus))
+        if (!TryParseEnumTolerant<InquiryStatus>(req.Status, out var newStatus))
             return BadRequest(new { message = $"Invalid status: {req.Status}" });
 
         var inquiry = await db.Inquiries
@@ -299,4 +301,19 @@ public class InquiriesController(
 
     private static string Trunc(string s, int n) =>
         s.Length <= n ? s : s[..n] + "…";
+
+    /// <summary>
+    /// Tolerant enum parser — strips underscores from the input before
+    /// case-insensitive matching, so snake_case wire values
+    /// ("in_progress", "site_visit", "document_request") line up with
+    /// the PascalCase C# enum names. Without this Enum.TryParse silently
+    /// failed for any multi-word enum case and the inquiry status/type
+    /// update was effectively a no-op for those values.
+    /// </summary>
+    private static bool TryParseEnumTolerant<T>(string? value, out T result) where T : struct, Enum
+    {
+        result = default;
+        if (string.IsNullOrWhiteSpace(value)) return false;
+        return Enum.TryParse(value.Replace("_", ""), ignoreCase: true, out result);
+    }
 }

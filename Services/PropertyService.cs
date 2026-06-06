@@ -37,6 +37,23 @@ public class PropertyService(
     IEmailService email,
     ISmsTemplateService templates) : IPropertyService
 {
+    /// <summary>
+    /// Tolerant enum parser — frontend sends snake_case strings
+    /// ("open_land", "for_sale") but the enum names are PascalCase
+    /// ("OpenLand", "ForSale"). Enum.TryParse with ignoreCase=true does
+    /// NOT strip underscores, so a plain TryParse silently fails for
+    /// 3 of 5 PropertyType values and was leaving prop.PropertyType
+    /// unchanged on PUT (the "Property type not updated in DB" bug).
+    /// Strip underscores first, then parse case-insensitively.
+    /// </summary>
+    private static bool TryParseEnum<T>(string? value, out T result) where T : struct, Enum
+    {
+        result = default;
+        if (string.IsNullOrWhiteSpace(value)) return false;
+        var normalised = value.Replace("_", "");
+        return Enum.TryParse(normalised, ignoreCase: true, out result);
+    }
+
     /// <summary>Great-circle distance between two lat/lng points, in metres.
     /// Used by the geolocation filter to refine the SQL bounding-box result.</summary>
     private static double Haversine(double lat1, double lng1, double lat2, double lng2)
@@ -102,19 +119,16 @@ public class PropertyService(
             var cityLower = q.City.ToLower();
             query = query.Where(p => p.City.ToLower().Contains(cityLower));
         }
-        if (!string.IsNullOrWhiteSpace(q.PropertyType) &&
-            Enum.TryParse<PropertyType>(q.PropertyType, true, out var pt))
+        if (TryParseEnum<PropertyType>(q.PropertyType, out var pt))
             query = query.Where(p => p.PropertyType == pt);
-        if (!string.IsNullOrWhiteSpace(q.Status) &&
-            Enum.TryParse<ListingStatus>(q.Status, true, out var ls))
+        if (TryParseEnum<ListingStatus>(q.Status, out var ls))
             query = query.Where(p => p.Status == ls);
         if (q.MinPrice.HasValue) query = query.Where(p => p.TotalPrice >= q.MinPrice.Value);
         if (q.MaxPrice.HasValue) query = query.Where(p => p.TotalPrice <= q.MaxPrice.Value);
         if (q.MinAreaCents.HasValue) query = query.Where(p => p.AreaInCents >= q.MinAreaCents.Value);
         if (q.MaxAreaCents.HasValue) query = query.Where(p => p.AreaInCents <= q.MaxAreaCents.Value);
         if (q.RoadAccess.HasValue) query = query.Where(p => p.RoadAccess == q.RoadAccess.Value);
-        if (!string.IsNullOrWhiteSpace(q.MarketingPlan) &&
-            Enum.TryParse<MarketingPlan>(q.MarketingPlan, true, out var mpFilter))
+        if (TryParseEnum<MarketingPlan>(q.MarketingPlan, out var mpFilter))
             query = query.Where(p => p.MarketingPlan == mpFilter);
 
         // Geolocation filter — when (NearLat, NearLng, RadiusM) are all set,
@@ -222,11 +236,11 @@ public class PropertyService(
 
     public async Task<PropertyDto> CreateAsync(CreatePropertyRequest req, int? submittedByUserId, bool autoApprove)
     {
-        if (!Enum.TryParse<PropertyType>(req.PropertyType, true, out var pt))
+        if (!TryParseEnum<PropertyType>(req.PropertyType, out var pt))
             pt = PropertyType.OpenLand;
-        if (!Enum.TryParse<ListingStatus>(req.Status ?? "ForSale", true, out var ls))
+        if (!TryParseEnum<ListingStatus>(req.Status ?? "ForSale", out var ls))
             ls = ListingStatus.ForSale;
-        if (!Enum.TryParse<MarketingPlan>(req.MarketingPlan ?? "Free", true, out var mp))
+        if (!TryParseEnum<MarketingPlan>(req.MarketingPlan ?? "Free", out var mp))
             mp = MarketingPlan.Free;
 
         var prop = new Property
@@ -294,15 +308,14 @@ public class PropertyService(
         if (req.RoadAccess.HasValue) prop.RoadAccess = req.RoadAccess.Value;
         if (req.IsFeatured.HasValue) prop.IsFeatured = req.IsFeatured.Value;
         if (req.IsVerified.HasValue) prop.IsVerified = req.IsVerified.Value;
-        if (req.MarketingPlan is not null &&
-            Enum.TryParse<MarketingPlan>(req.MarketingPlan, true, out var mpUpd))
+        if (TryParseEnum<MarketingPlan>(req.MarketingPlan, out var mpUpd))
             prop.MarketingPlan = mpUpd;
         if (req.Latitude.HasValue) prop.Latitude = req.Latitude;
         if (req.Longitude.HasValue) prop.Longitude = req.Longitude;
-        if (req.PropertyType is not null && Enum.TryParse<PropertyType>(req.PropertyType, true, out var pt))
-            prop.PropertyType = pt;
-        if (req.Status is not null && Enum.TryParse<ListingStatus>(req.Status, true, out var ls))
-            prop.Status = ls;
+        if (TryParseEnum<PropertyType>(req.PropertyType, out var ptUpd))
+            prop.PropertyType = ptUpd;
+        if (TryParseEnum<ListingStatus>(req.Status, out var lsUpd))
+            prop.Status = lsUpd;
 
         prop.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
