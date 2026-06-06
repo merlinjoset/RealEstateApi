@@ -59,6 +59,7 @@ public record PropertyDto(
     int? AgentId,
     string? SubmittedByName,
     string? SubmittedByPhone,
+    string? SubmittedByEmail,
     int? AssignedToVerifyUserId,
     string? AssignedToVerifyName,
     DateTime? AssignedToVerifyAt,

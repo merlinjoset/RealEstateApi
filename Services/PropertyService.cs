@@ -83,6 +83,7 @@ public class PropertyService(
             ? $"{p.SubmittedByUser.FirstName} {p.SubmittedByUser.LastName}"
             : p.SubmitterName,
         p.SubmittedByUser?.Phone ?? p.SubmitterPhone,
+        p.SubmittedByUser?.Email ?? p.SubmitterEmail,
         p.AssignedToVerifyUserId,
         p.AssignedToVerifyUser != null
             ? $"{p.AssignedToVerifyUser.FirstName} {p.AssignedToVerifyUser.LastName}"
