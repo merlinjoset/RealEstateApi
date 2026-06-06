@@ -108,6 +108,7 @@ public class PropertyService(
             // exact / substring match on it should win even if the same string
             // doesn't appear in the title or address.
             query = query.Where(p => p.Title.ToLower().Contains(s) ||
+                                     p.Description.ToLower().Contains(s) ||
                                      p.City.ToLower().Contains(s) ||
                                      p.Address.ToLower().Contains(s) ||
                                      (p.SerialNo != null && p.SerialNo.ToLower().Contains(s)));
