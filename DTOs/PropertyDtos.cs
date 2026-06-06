@@ -132,7 +132,13 @@ public record UpdatePropertyRequest(
     bool? IsVerified,
     string? MarketingPlan,
     double? Latitude,
-    double? Longitude
+    double? Longitude,
+    // Owner / seller contact for this listing. Admins can correct these on the
+    // edit screen (e.g. when a property was submitted by one account on behalf
+    // of a different owner). Null leaves a field untouched; empty string clears.
+    string? SubmitterName,
+    string? SubmitterPhone,
+    string? SubmitterEmail
 );
 
 public record PaginatedResponse<T>(

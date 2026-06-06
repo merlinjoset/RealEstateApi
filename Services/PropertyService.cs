@@ -329,6 +329,15 @@ public class PropertyService(
         if (TryParseEnum<ListingStatus>(req.Status, out var lsUpd))
             prop.Status = lsUpd;
 
+        // Owner / seller contact — null leaves the stored value untouched, an
+        // empty string clears it. Trimmed so stray whitespace doesn't linger.
+        if (req.SubmitterName is not null)
+            prop.SubmitterName = string.IsNullOrWhiteSpace(req.SubmitterName) ? null : req.SubmitterName.Trim();
+        if (req.SubmitterPhone is not null)
+            prop.SubmitterPhone = string.IsNullOrWhiteSpace(req.SubmitterPhone) ? null : req.SubmitterPhone.Trim();
+        if (req.SubmitterEmail is not null)
+            prop.SubmitterEmail = string.IsNullOrWhiteSpace(req.SubmitterEmail) ? null : req.SubmitterEmail.Trim();
+
         prop.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return ToDto(prop);
