@@ -78,12 +78,22 @@ public class PropertyService(
         p.MarketingPlan.ToString(),
         p.Latitude, p.Longitude,
         p.AgentId,
-        // Prefer the registered user's name; fall back to anonymous submitter name
-        p.SubmittedByUser != null
-            ? $"{p.SubmittedByUser.FirstName} {p.SubmittedByUser.LastName}"
-            : p.SubmitterName,
-        p.SubmittedByUser?.Phone ?? p.SubmitterPhone,
-        p.SubmittedByUser?.Email ?? p.SubmitterEmail,
+        // The "Your Details" form captures the actual owner/seller contact for
+        // THIS listing (e.g. an agent or family member may submit on someone
+        // else's behalf while logged in). So prefer the explicitly-entered
+        // submitter contact, and only fall back to the logged-in account when
+        // the form left it blank.
+        !string.IsNullOrWhiteSpace(p.SubmitterName)
+            ? p.SubmitterName
+            : (p.SubmittedByUser != null
+                ? $"{p.SubmittedByUser.FirstName} {p.SubmittedByUser.LastName}"
+                : null),
+        !string.IsNullOrWhiteSpace(p.SubmitterPhone)
+            ? p.SubmitterPhone
+            : p.SubmittedByUser?.Phone,
+        !string.IsNullOrWhiteSpace(p.SubmitterEmail)
+            ? p.SubmitterEmail
+            : p.SubmittedByUser?.Email,
         p.AssignedToVerifyUserId,
         p.AssignedToVerifyUser != null
             ? $"{p.AssignedToVerifyUser.FirstName} {p.AssignedToVerifyUser.LastName}"
