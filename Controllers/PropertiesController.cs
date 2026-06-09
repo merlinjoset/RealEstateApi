@@ -35,14 +35,22 @@ public class PropertiesController(
     private bool IsAdmin =>
         User.FindFirstValue(ClaimTypes.Role) == "Admin";
 
+    /// <summary>Normalise a status value ("for_rent", "ForRent") to a
+    /// comparable, underscore-stripped lowercase token.</summary>
+    private static string NormaliseStatus(string? s) =>
+        (s ?? string.Empty).Replace("_", string.Empty).ToLowerInvariant();
+
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] PropertyQueryParams q)
     {
-        // Anonymous visitors only see Video Promotion (paid) listings — Free
-        // listings are reserved for signed-in buyers, which both protects
-        // sellers' direct contact details and gives us a stronger reason
-        // for buyers to register. Admins and any logged-in user see all tiers.
-        if (CurrentUserId is null)
+        // Rental listings are free and fully public — renters browse them
+        // without an account. For every other (sale) query, anonymous visitors
+        // only see Video Promotion (paid) listings; Free sale listings stay
+        // reserved for signed-in buyers, which protects sellers' direct
+        // contacts and gives buyers a reason to register. Admins and any
+        // logged-in user see all tiers.
+        var isRentalQuery = NormaliseStatus(q.Status) == "forrent";
+        if (CurrentUserId is null && !isRentalQuery)
             q.MarketingPlan = "VideoPromotion";
 
         var result = await propertyService.GetAllAsync(q);
@@ -88,10 +96,12 @@ public class PropertiesController(
         var result = await propertyService.GetByIdAsync(id);
         if (result is null) return NotFound();
 
-        // Free listings are gated behind login — return 401 so the frontend
-        // can route the user to /register?intent=buyer instead of leaking
-        // the property details.
-        if (CurrentUserId is null && result.MarketingPlan != "VideoPromotion")
+        // Rentals are free and public — anyone can view a rental detail.
+        // Free SALE listings stay gated behind login (return 401 so the
+        // frontend can route the user to /register?intent=buyer instead of
+        // leaking the property details).
+        var isRental = string.Equals(result.Status, "ForRent", StringComparison.OrdinalIgnoreCase);
+        if (CurrentUserId is null && !isRental && result.MarketingPlan != "VideoPromotion")
             return Unauthorized(new { code = "sign_in_required", message = "Sign in to view free listings." });
 
         return Ok(result);
