@@ -13,6 +13,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Testimonial> Testimonials => Set<Testimonial>();
     public DbSet<SmsTemplate> SmsTemplates => Set<SmsTemplate>();
     public DbSet<SiteSetting> SiteSettings => Set<SiteSetting>();
+    public DbSet<PageView> PageViews => Set<PageView>();
 
     /// <summary>
     /// Override SaveChanges to convert any Remove() calls on ISoftDeletable
@@ -103,6 +104,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         mb.Entity<SmsTemplate>(e =>
         {
             e.HasIndex(t => t.Key).IsUnique();
+        });
+
+        // PageView — indexed by time (date-range queries) and path (top pages).
+        mb.Entity<PageView>(e =>
+        {
+            e.HasIndex(p => p.CreatedAt);
+            e.HasIndex(p => p.Path);
         });
 
         // Inquiry
