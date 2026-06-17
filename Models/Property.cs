@@ -34,6 +34,9 @@ public class Property : ISoftDeletable
     public string Description { get; set; } = string.Empty;
     public decimal TotalPrice { get; set; }
     public decimal? PricePerCent { get; set; }
+    /// <summary>Optional discounted/offer price. When set and below TotalPrice,
+    /// the UI shows it as the effective price with TotalPrice struck through.</summary>
+    public decimal? DiscountPrice { get; set; }
     public string Address { get; set; } = string.Empty;
     public string City { get; set; } = string.Empty;
     public string District { get; set; } = "Kanyakumari";

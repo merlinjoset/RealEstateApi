@@ -68,7 +68,7 @@ public class PropertyService(
     }
 
     private static PropertyDto ToDto(Property p) => new(
-        p.Id, p.SerialNo, p.Title, p.Description, p.TotalPrice, p.PricePerCent,
+        p.Id, p.SerialNo, p.Title, p.Description, p.TotalPrice, p.PricePerCent, p.DiscountPrice,
         p.Address, p.City, p.District, p.State, p.PinCode,
         p.AreaInCents, p.AreaInSqFt, p.Bedrooms, p.Bathrooms,
         p.PropertyType.ToString(), p.Status.ToString(),
@@ -262,6 +262,9 @@ public class PropertyService(
             Description = req.Description,
             TotalPrice = req.TotalPrice,
             PricePerCent = req.PricePerCent,
+            // Only treat a positive, below-total value as a real discount.
+            DiscountPrice = req.DiscountPrice is > 0 && req.DiscountPrice < req.TotalPrice
+                ? req.DiscountPrice : null,
             Address = req.Address,
             City = req.City,
             District = req.District ?? "Kanyakumari",
@@ -307,6 +310,14 @@ public class PropertyService(
         if (req.Description is not null) prop.Description = req.Description;
         if (req.TotalPrice.HasValue) prop.TotalPrice = req.TotalPrice.Value;
         if (req.PricePerCent.HasValue) prop.PricePerCent = req.PricePerCent;
+        // Discount: a value > 0 (and below the total) sets it; 0 clears it;
+        // null leaves it unchanged. Compare against the incoming or existing total.
+        if (req.DiscountPrice.HasValue)
+        {
+            var total = req.TotalPrice ?? prop.TotalPrice;
+            prop.DiscountPrice = req.DiscountPrice.Value > 0 && req.DiscountPrice.Value < total
+                ? req.DiscountPrice.Value : null;
+        }
         if (req.Address is not null) prop.Address = req.Address;
         if (req.City is not null) prop.City = req.City;
         if (req.AreaInCents.HasValue) prop.AreaInCents = req.AreaInCents.Value;

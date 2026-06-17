@@ -34,6 +34,7 @@ public record PropertyDto(
     string Description,
     decimal TotalPrice,
     decimal? PricePerCent,
+    decimal? DiscountPrice,
     string Address,
     string City,
     string District,
@@ -82,6 +83,8 @@ public record CreatePropertyRequest(
     [Required] string Description,
     [Required, Range(1, double.MaxValue)] decimal TotalPrice,
     decimal? PricePerCent,
+    /// <summary>Optional discounted price; less than TotalPrice. 0 / null = no discount.</summary>
+    decimal? DiscountPrice,
     [Required] string Address,
     [Required] string City,
     string District,
@@ -115,6 +118,8 @@ public record UpdatePropertyRequest(
     string? Description,
     decimal? TotalPrice,
     decimal? PricePerCent,
+    /// <summary>Discounted price. Send a value > 0 to set, or 0 to clear it.</summary>
+    decimal? DiscountPrice,
     string? Address,
     string? City,
     decimal? AreaInCents,

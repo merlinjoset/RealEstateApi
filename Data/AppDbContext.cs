@@ -72,6 +72,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(p => p.NearbyLandmarks).HasColumnType("text[]");
             e.Property(p => p.TotalPrice).HasPrecision(18, 2);
             e.Property(p => p.PricePerCent).HasPrecision(18, 2);
+            e.Property(p => p.DiscountPrice).HasPrecision(18, 2);
             e.Property(p => p.AreaInCents).HasPrecision(10, 3);
             e.Property(p => p.AreaInSqFt).HasPrecision(12, 2);
 
