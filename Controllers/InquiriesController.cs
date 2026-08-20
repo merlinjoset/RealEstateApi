@@ -15,7 +15,7 @@ public class InquiriesController(
     AppDbContext db,
     INotificationService notifications,
     ISmsTemplateService templates,
-    ITurnstileService turnstile) : ControllerBase
+    ICaptchaService captcha) : ControllerBase
 {
     /// <summary>
     /// Render an SmsTemplate from the database and send it. Tries WhatsApp first
@@ -39,8 +39,7 @@ public class InquiriesController(
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateInquiryRequest req)
     {
-        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
-        if (!await turnstile.VerifyAsync(req.TurnstileToken, ip))
+        if (!captcha.Verify(req.CaptchaToken, req.CaptchaAnswer))
             return BadRequest(new { message = "Captcha verification failed. Please try again." });
 
         // Strip underscores before parsing so snake_case strings sent by

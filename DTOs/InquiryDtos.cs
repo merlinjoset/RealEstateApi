@@ -10,7 +10,8 @@ public record CreateInquiryRequest(
     string PreferredContact,
     int? PropertyId,
     string? Type = null,  // "General" | "DocumentRequest" | "SiteVisit" | "Pricing" | "Sell"
-    string? TurnstileToken = null  // Cloudflare Turnstile response token
+    string? CaptchaToken = null,   // signed challenge token from GET /api/captcha
+    string? CaptchaAnswer = null   // the code the user typed
 );
 
 public record InquiryDto(

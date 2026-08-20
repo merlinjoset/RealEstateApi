@@ -22,7 +22,8 @@ public record RegisterRequest(
     [Required, MinLength(8)] string Password,
     string? Phone,
     string? Role,  // "Agent" | "Seller" — defaults to Seller if missing/invalid
-    string? TurnstileToken = null  // Cloudflare Turnstile response token
+    string? CaptchaToken = null,   // signed challenge token from GET /api/captcha
+    string? CaptchaAnswer = null   // the code the user typed
 );
 
 public record AuthResponse(UserDto User, TokensDto Tokens);
