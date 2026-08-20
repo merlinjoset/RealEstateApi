@@ -14,7 +14,8 @@ namespace RealEstateApi.Controllers;
 public class InquiriesController(
     AppDbContext db,
     INotificationService notifications,
-    ISmsTemplateService templates) : ControllerBase
+    ISmsTemplateService templates,
+    ITurnstileService turnstile) : ControllerBase
 {
     /// <summary>
     /// Render an SmsTemplate from the database and send it. Tries WhatsApp first
@@ -38,6 +39,10 @@ public class InquiriesController(
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateInquiryRequest req)
     {
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+        if (!await turnstile.VerifyAsync(req.TurnstileToken, ip))
+            return BadRequest(new { message = "Captcha verification failed. Please try again." });
+
         // Strip underscores before parsing so snake_case strings sent by
         // the React client ("site_visit", "document_request", "in_progress")
         // map cleanly to the PascalCase enum names. Enum.TryParse with

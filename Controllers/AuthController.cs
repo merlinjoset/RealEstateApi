@@ -8,7 +8,7 @@ namespace RealEstateApi.Controllers;
 
 [ApiController]
 [Route("api/auth")]
-public class AuthController(IAuthService authService, IRsaKeyService rsa) : ControllerBase
+public class AuthController(IAuthService authService, IRsaKeyService rsa, ITurnstileService turnstile) : ControllerBase
 {
     /// <summary>
     /// Public RSA key (JWK format) the browser uses to encrypt the password
@@ -47,6 +47,10 @@ public class AuthController(IAuthService authService, IRsaKeyService rsa) : Cont
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest req)
     {
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+        if (!await turnstile.VerifyAsync(req.TurnstileToken, ip))
+            return BadRequest(new { message = "Captcha verification failed. Please try again." });
+
         try
         {
             var result = await authService.RegisterAsync(req);

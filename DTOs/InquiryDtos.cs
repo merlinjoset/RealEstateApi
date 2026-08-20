@@ -9,7 +9,8 @@ public record CreateInquiryRequest(
     [Required] string Message,
     string PreferredContact,
     int? PropertyId,
-    string? Type = null  // "General" | "DocumentRequest" | "SiteVisit" | "Pricing" | "Sell"
+    string? Type = null,  // "General" | "DocumentRequest" | "SiteVisit" | "Pricing" | "Sell"
+    string? TurnstileToken = null  // Cloudflare Turnstile response token
 );
 
 public record InquiryDto(

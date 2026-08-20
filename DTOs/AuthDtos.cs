@@ -21,7 +21,8 @@ public record RegisterRequest(
     [Required, EmailAddress] string Email,
     [Required, MinLength(8)] string Password,
     string? Phone,
-    string? Role  // "Agent" | "Seller" — defaults to Seller if missing/invalid
+    string? Role,  // "Agent" | "Seller" — defaults to Seller if missing/invalid
+    string? TurnstileToken = null  // Cloudflare Turnstile response token
 );
 
 public record AuthResponse(UserDto User, TokensDto Tokens);
